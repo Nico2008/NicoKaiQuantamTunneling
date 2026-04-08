@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Tunneling Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  :root {
+    --bg-main: #0b111a;
+    --bg-panel: #121c2b;
+    --border: #24364f;
+    --text-main: #a3c2e0;
+    --text-light: #e0eaf5;
+    --accent-blue: #5fa8dd;
+    --accent-green: #4bd18c;
+    --accent-orange: #f28b46;
+  }
+  body { margin: 0; padding: 20px; background: #05080c; display: flex; justify-content: center; font-family: system-ui, -apple-system, sans-serif; }
+  
+  #qt-wrap { 
+    background: var(--bg-main); 
+    border-radius: 12px; 
+    overflow: hidden; 
+    border: 1px solid var(--border); 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    width: 100%;
+    max-width: 800px;
+  }
+  
+  #qt-header { 
+    background: var(--bg-panel); 
+    padding: 12px 20px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    border-bottom: 1px solid var(--border); 
+  }
+  
+  #qt-header .title { 
+    color: var(--text-light); 
+    font-size: 15px; 
+    font-weight: 600; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+  }
+  
+  #qt-header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
+  
+  #qt-tabs { display: flex; gap: 6px; }
+  .tab-btn { 
+    background: transparent; 
+    border: 1px solid var(--border); 
+    color: var(--text-main); 
+    font-size: 13px; 
+    padding: 6px 14px; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { background: #1a283b; }
+  .tab-btn.active { background: #20354f; border-color: var(--accent-blue); color: #fff; }
+  
+  #qt-canvas { display: block; width: 100%; height: 350px; }
+  
+  #qt-controls { 
+    background: var(--bg-panel); 
+    border-top: 1px solid var(--border); 
+    padding: 20px; 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 20px; 
+    align-items: flex-start; 
+    justify-content: space-between; 
+  }
+  
+  .control-group { display: flex; flex-direction: column; gap: 8px; min-width: 140px; flex: 1; }
+  .control-label { color: var(--text-main); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .control-row { display: flex; align-items: center; gap: 10px; }
+  .control-val { color: #fff; font-size: 14px; font-weight: 600; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+  
+  input[type=range] { 
+    -webkit-appearance: none; 
+    appearance: none; 
+    width: 100%; 
+    height: 6px; 
+    background: #0b111a; 
+    border-radius: 3px; 
+    outline: none; 
+    border: 1px solid var(--border);
+  }
+  input[type=range]::-webkit-slider-thumb { 
+    -webkit-appearance: none; 
+    width: 16px; 
+    height: 16px; 
+    border-radius: 50%; 
+    background: var(--accent-blue); 
+    cursor: pointer; 
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  
+  #qt-stats { display: flex; gap: 10px; width: 100%; }
+  .stat-card { 
+    background: #0b111a; 
+    border: 1px solid var(--border); 
+    border-radius: 8px; 
+    padding: 10px; 
+    flex: 1;
+    text-align: center; 
+  }
+  .stat-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-lbl { font-size: 11px; color: var(--text-main); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .btn-row { display: flex; gap: 10px; width: 100%; }
+  .action-btn { 
+    padding: 10px 16px; 
+    border-radius: 8px; 
+    border: none; 
+    cursor: pointer; 
+    font-size: 13px; 
+    font-weight: 600; 
+    transition: all 0.15s; 
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-fire { background: var(--accent-orange); color: #fff; box-shadow: 0 2px 10px rgba(242, 139, 70, 0.3); }
+  .btn-fire:hover { background: #ff9d5c; transform: translateY(-1px); }
+  .btn-fire:active { transform: translateY(1px); }
+  
+  .btn-reset { background: #1a283b; color: var(--text-light); border: 1px solid var(--border); }
+  .btn-reset:hover { background: #24364f; }
+  
+  .toggle-wrap { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .toggle-wrap input { cursor: pointer; }
+  .toggle-wrap label { color: var(--text-main); font-size: 12px; cursor: pointer; user-select: none; }
+  
+  .left-col { display: flex; flex-direction: column; gap: 15px; flex: 1.5; min-width: 250px; }
+  .right-col { display: flex; flex-direction: column; gap: 15px; flex: 2; min-width: 300px; }
+</style>
+</head>
+<body>
+
+<div id="qt-wrap">
+  <div id="qt-header">
+    <div class="title"><div class="dot"></div>Quantum Tunneling</div>
+    <div id="qt-tabs">
+      <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
+      <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
+    </div>
+  </div>
+  <div id="qt-canvas"></div>
+  <div id="qt-controls">
+    <div class="left-col">
+      <div class="btn-row">
+        <button class="action-btn btn-fire" id="btnFire">&#9654; Fire Particle</button>
+        <button class="action-btn btn-reset" id="btnReset">&#8635; Reset</button>
+      </div>
+      <div id="qt-stats">
+        <div class="stat-card">
+          <div class="stat-val" id="statT" style="color:var(--accent-green)">--</div>
+          <div class="stat-lbl">Transmission (T)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statR" style="color:var(--accent-orange)">--</div>
+          <div class="stat-lbl">Reflection (R)</div>
+        </div>
+      </div>
+      <div class="toggle-wrap" id="probToggleWrap">
+        <input type="checkbox" id="probToggle" checked>
+        <label for="probToggle">Show Probability Density |&Psi;|²</label>
+      </div>
+    </div>
+    
+    <div class="right-col">
+      <div style="display:flex; gap: 20px;">
+        <div class="control-group">
+          <div class="control-label">Particle Energy (E)</div>
+          <div class="control-row">
+            <input type="range" id="energySlider" min="0.1" max="1.5" value="0.5" step="0.01">
+            <span class="control-val" id="energyVal">0.50</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Barrier Height (V₀)</div>
+          <div class="control-row">
+            <input type="range" id="heightSlider" min="0.3" max="2.0" value="1.0" step="0.01">
+            <span class="control-val" id="heightVal">1.00</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap: 20px;">
+        <div class="control-group">
+          <div class="control-label">Barrier Width (a)</div>
+          <div class="control-row">
+            <input type="range" id="widthSlider" min="0.1" max="3.0" value="0.8" step="0.05">
+            <span class="control-val" id="widthVal">0.80</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">Packet Spread (&sigma;)</div>
+          <div class="control-row">
+            <input type="range" id="spreadSlider" min="0.3" max="1.5" value="0.8" step="0.05">
+            <span class="control-val" id="spreadVal">0.80</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let simMode = 'quantum';
+function setMode(m) {
+  simMode = m;
+  document.getElementById('tabQuantum').className = 'tab-btn' + (m==='quantum'?' active':'');
+  document.getElementById('tabClassical').className = 'tab-btn' + (m==='classical'?' active':'');
+  document.getElementById('probToggleWrap').style.opacity = m === 'quantum' ? '1' : '0.3';
+  document.getElementById('probToggle').disabled = m !== 'quantum';
+  doReset();
+}
+
+new p5(function(p) {
+  let W, H;
+  const AXIS_Y_FRAC = 0.65;
+  const BARRIER_COLOR = p.color(30, 60, 100, 200);
+  const BARRIER_STROKE = p.color(95, 168, 221);
+
+  let wavePackets = [];
+  let fired = false;
+  let framesSinceFire = 0;
+  let showDensity = true;
+
+  let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8;
+  let T = 0, R = 1;
+
+  // Exact quantum mechanical transmission coefficient for rectangular barrier
+  function calcT(E_, V0_, a_nm) {
+    let a = a_nm * 8; // Scaling factor for visual width vs math
+    if (E_ === V0_) return 1 / (1 + (2 * 0.038 * V0_ * a * a)); // Limit case
+    
+    if (E_ > V0_) {
+      let k1 = Math.sqrt(E_), k2 = Math.sqrt(E_ - V0_);
+      let sinSq = Math.pow(Math.sin(k2 * a), 2);
+      return 1 / (1 + (Math.pow(k1*k1 - k2*k2, 2) * sinSq) / (4 * k1*k1 * k2*k2));
+    } else {
+      let kappa = Math.sqrt(V0_ - E_);
+      let sinhSq = Math.pow(Math.sinh(kappa * a), 2);
+      return 1 / (1 + (V0_ * V0_ * sinhSq) / (4 * E_ * (V0_ - E_)));
+    }
+  }
+
+  function updateStats() {
+    T = calcT(E, V0, barrierW);
+    R = 1 - T;
+    document.getElementById('statT').textContent = (T * 100).toFixed(1) + '%';
+    document.getElementById('statR').textContent = (R * 100).toFixed(1) + '%';
+  }
+
+  function doReset() {
+    wavePackets = [];
+    fired = false;
+    framesSinceFire = 0;
+    document.getElementById('btnFire').disabled = false;
+    document.getElementById('btnFire').style.opacity = 1;
+  }
+  window.doReset = doReset;
+
+  function buildWave(cx, amp, sigma, k0, type) {
+    // Types: 'incident', 'reflected', 'transmitted', 'inside'
+    let col;
+    if (type === 'transmitted') col = [75, 209, 140];
+    else if (type === 'reflected') col = [242, 139, 70];
+    else if (type === 'inside') col = [180, 100, 255];
+    else col = [95, 168, 221]; // Incident
+    
+    return { cx, amp, sigma, k0, col, type, dead: false };
+  }
+
+  p.setup = function() {
+    let container = document.getElementById('qt-canvas');
+    W = container.offsetWidth;
+    H = container.offsetHeight;
+    let cnv = p.createCanvas(W, H);
+    cnv.parent('qt-canvas');
+    
+    updateParams();
+    
+    document.getElementById('btnFire').onclick = () => { 
+      if (!fired) { 
+        fired = true; 
+        spawnWave(); 
+        document.getElementById('btnFire').disabled = true;
+        document.getElementById('btnFire').style.opacity = 0.5;
+      } 
+    };
+    document.getElementById('btnReset').onclick = doReset;
+    document.getElementById('probToggle').onchange = (e) => { showDensity = e.target.checked; };
+    
+    ['energy','height','width','spread'].forEach(id => {
+      document.getElementById(id+'Slider').oninput = function() {
+        updateParams();
+        if(!fired) doReset(); 
+      };
+    });
+  };
+
+  function updateParams() {
+    E = parseFloat(document.getElementById('energySlider').value);
+    V0 = parseFloat(document.getElementById('heightSlider').value);
+    barrierW = parseFloat(document.getElementById('widthSlider').value);
+    spread = parseFloat(document.getElementById('spreadSlider').value);
+    
+    document.getElementById('energyVal').textContent = E.toFixed(2);
+    document.getElementById('heightVal').textContent = V0.toFixed(2);
+    document.getElementById('widthVal').textContent = barrierW.toFixed(2);
+    document.getElementById('spreadVal').textContent = spread.toFixed(2);
+    updateStats();
+  }
+
+  function spawnWave() {
+    let startX = W * 0.15;
+    let sigma = spread * 40;
+    let k0 = Math.sqrt(E) * 3.0; // Momentum proportional to sqrt(E)
+    wavePackets = [buildWave(startX, 1.0, sigma, k0, 'incident')];
+  }
+
+  function getBarrierBounds() {
+    let bwPx = p.map(barrierW, 0.1, 3.0, 10, 120);
+    let bx1 = W * 0.5 - bwPx / 2;
+    let bx2 = W * 0.5 + bwPx / 2;
+    return { bx1, bx2, bwPx };
+  }
+
+  p.draw = function() {
+    p.background(11, 17, 26);
+    let axisY = H * AXIS_Y_FRAC;
+    let { bx1, bx2 } = getBarrierBounds();
+
+    drawPotentialEnvironment(axisY, bx1, bx2);
+
+    if (simMode === 'quantum') {
+      drawQuantumScene(axisY, bx1, bx2);
+    } else {
+      drawClassicalScene(axisY, bx1, bx2);
+    }
+
+    drawProbabilityGraph();
+    drawLabels(axisY, bx1, bx2);
+  };
+
+  function drawPotentialEnvironment(axisY, bx1, bx2) {
+    let potH = p.map(V0, 0.3, 2.0, 20, 110);
+    
+    // Grid lines
+    p.stroke(25, 40, 60);
+    p.strokeWeight(1);
+    for (let x = 0; x < W; x += 50) p.line(x, 0, x, axisY);
+    for (let y = 0; y < axisY; y += 40) p.line(0, y, W, y);
+
+    // Barrier
+    p.fill(BARRIER_COLOR);
+    p.stroke(BARRIER_STROKE);
+    p.strokeWeight(2);
+    p.rect(bx1, axisY - potH, bx2 - bx1, potH);
+
+    // Potential extension lines
+    p.stroke(95, 168, 221, 100);
+    p.drawingContext.setLineDash([4, 4]);
+    p.line(0, axisY - potH, bx1, axisY - potH);
+    p.line(bx2, axisY - potH, W, axisY - potH);
+
+    // Energy level line
+    let ey = axisY - p.map(E, 0, Math.max(V0, 0.01), 0, potH);
+    let eColor = E >= V0 ? p.color(75, 209, 140) : p.color(242, 139, 70);
+    p.stroke(eColor);
+    p.strokeWeight(2);
+    p.drawingContext.setLineDash([8, 4]);
+    p.line(0, ey, W, ey);
+    p.drawingContext.setLineDash([]);
+
+    // Base x-axis
+    p.stroke(60, 90, 120);
+    p.strokeWeight(2);
+    p.line(0, axisY, W, axisY);
+  }
+
+  function drawQuantumScene(axisY, bx1, bx2) {
+    if (!fired || wavePackets.length === 0) return;
+    
+    let speed = 2.0 + Math.sqrt(E) * 1.5;
+    let mainWave = wavePackets[0];
+    
+    // Logic for splitting the wave when it hits the barrier
+    if (mainWave && mainWave.type === 'incident') {
+        mainWave.cx += speed;
+        
+        // When center reaches the barrier, execute the split
+        if (mainWave.cx >= bx1 && wavePackets.length === 1) {
+            // Spawn transmitted wave on the other side
+            wavePackets.push(buildWave(bx2, Math.sqrt(T), mainWave.sigma, mainWave.k0, 'transmitted'));
+            // Spawn reflected wave
+            wavePackets.push(buildWave(bx1, Math.sqrt(R), mainWave.sigma, -mainWave.k0, 'reflected'));
+            mainWave.dead = true; 
+        }
+    }
+
+    // Update positions of active packets
+    for (let i = 0; i < wavePackets.length; i++) {
+      let wp = wavePackets[i];
+      if (wp.dead) continue;
+      
+      if (wp.type === 'transmitted') wp.cx += speed;
+      if (wp.type === 'reflected') wp.cx -= speed;
+      
+      // Remove if off screen
+      if (wp.cx < -wp.sigma * 4 || wp.cx > W + wp.sigma * 4) wp.dead = true;
+    }
+
+    // Draw evanescent/internal wave if interaction is happening
+    if (mainWave && mainWave.cx > bx1 - mainWave.sigma*2 && mainWave.cx < bx2 + mainWave.sigma*2) {
+        drawInternalWave(axisY, bx1, bx2, mainWave.cx);
+    }
+
+    // Draw standard packets
+    for (let wp of wavePackets) {
+      if (!wp.dead) drawWavePacket(wp, axisY);
+    }
+
+    // Check if simulation sequence is over to reset button
+    if (wavePackets.every(w => w.dead)) {
+        fired = false;
+        document.getElementById('btnFire').disabled = false;
+        document.getElementById('btnFire').style.opacity = 1;
+    }
+  }
+
+  function drawWavePacket(wp, axisY) {
+    let ptsReal = [];
+    let ptsDensity = [];
+    let step = 2;
+    let drawScale = 50; // Amplitude visual scale
+
+    for (let px = wp.cx - wp.sigma*3; px <= wp.cx + wp.sigma*3; px += step) {
+      let dx = px - wp.cx;
+      let gaussian = Math.exp(-(dx * dx) / (2 * wp.sigma * wp.sigma));
+      
+      // Psi
+      let amplitude = wp.amp * gaussian;
+      let phase = wp.k0 * dx * 0.08 - (p.frameCount * 0.1 * wp.k0); 
+      let realPart = amplitude * Math.cos(phase);
+      
+      // Probability Density |Psi|^2
+      let density = (amplitude * amplitude);
+
+      ptsReal.push({ x: px, y: axisY - realPart * drawScale });
+      ptsDensity.push({ x: px, y: axisY - density * drawScale });
+    }
+
+    let [cr, cg, cb] = wp.col;
+
+    // Draw Probability Density
+    if (showDensity) {
+      p.noStroke();
+      p.fill(cr, cg, cb, 40);
+      p.beginShape();
+      p.vertex(ptsDensity[0].x, axisY);
+      for (let pt of ptsDensity) p.vertex(pt.x, pt.y);
+      p.vertex(ptsDensity[ptsDensity.length-1].x, axisY);
+      p.endShape();
+      
+      // Density outline
+      p.stroke(cr, cg, cb, 100);
+      p.strokeWeight(1);
+      p.noFill();
+      p.beginShape();
+      for (let pt of ptsDensity) p.vertex(pt.x, pt.y);
+      p.endShape();
+    }
+
+    // Draw Real Part of Wavefunction
+    p.noFill();
+    p.stroke(cr, cg, cb, 255);
+    p.strokeWeight(2);
+    p.beginShape();
+    for (let pt of ptsReal) p.vertex(pt.x, pt.y);
+    p.endShape();
+  }
+
+  function drawInternalWave(axisY, bx1, bx2, incidentCx) {
+     // Fades the internal representation in and out smoothly
+     let dist = Math.abs(incidentCx - bx1);
+     let alphaSq = p.map(dist, 0, 80, 255, 0, true);
+     if(alphaSq <= 0) return;
+
+     p.noFill();
+     p.stroke(180, 100, 255, alphaSq);
+     p.strokeWeight(2);
+     p.beginShape();
+     
+     let a = bx2 - bx1;
+     for(let px = bx1; px <= bx2; px += 2) {
+         let x = px - bx1;
+         let val = 0;
+         if (E < V0) {
+            // Evanescent exponential decay
+            let kappa = Math.sqrt(V0 - E) * 0.1;
+            val = Math.exp(-kappa * x) * Math.cos(p.frameCount * 0.1);
+         } else {
+            // Oscillating with longer wavelength
+            let k2 = Math.sqrt(E - V0) * 0.08;
+            val = Math.cos(k2 * x - p.frameCount * 0.1);
+         }
+         // Taper it to match transmitted amplitude at the edge
+         let envelope = p.map(px, bx1, bx2, 1.0, Math.sqrt(T));
+         p.vertex(px, axisY - (val * envelope * 50));
+     }
+     p.endShape();
+  }
+
+  function drawClassicalScene(axisY, bx1, bx2) {
+    if (!fired) return;
+    framesSinceFire++;
+
+    let ballR = 12;
+    let t = framesSinceFire;
+    let startX = W * 0.15;
+    let canPass = E >= V0;
+    let speed = 2.0 + Math.sqrt(E) * 1.5;
+
+    let bx = startX + speed * t;
+    let by = axisY - ballR;
+    let squish = 1.0;
+
+    if (!canPass) {
+      if (bx > bx1 - ballR) {
+        let overlap = bx - (bx1 - ballR);
+        // Simple hard reflection logic with visual "squish"
+        if (overlap < 15) {
+            bx = bx1 - ballR;
+            squish = p.map(overlap, 0, 15, 1.0, 0.6);
+        } else {
+            bx = (bx1 - ballR) - (overlap - 15);
+        }
+      }
+    }
+
+    if (bx > W + ballR || bx < -ballR) { 
+        fired = false; 
+        framesSinceFire = 0; 
+        document.getElementById('btnFire').disabled = false;
+        document.getElementById('btnFire').style.opacity = 1;
+    }
+
+    // Ball styling
+    p.push();
+    p.translate(bx, by);
+    p.scale(squish, 2 - squish); // Conservation of volume squish
+    
+    let ballColor = canPass ? p.color(75, 209, 140) : p.color(242, 139, 70);
+    p.noStroke();
+    
+    // Glow
+    p.fill(p.red(ballColor), p.green(ballColor), p.blue(ballColor), 60);
+    p.circle(0, 0, ballR * 3);
+    
+    // Core
+    p.fill(ballColor);
+    p.circle(0, 0, ballR * 2);
+    
+    // Highlight
+    p.fill(255, 255, 255, 150);
+    p.circle(-ballR*0.3, -ballR*0.3, ballR*0.6);
+    p.pop();
+
+    // Classical text indicator
+    p.fill(255, 255, 255, Math.min(255, t*5));
+    p.noStroke();
+    p.textSize(12);
+    p.textAlign(p.CENTER);
+    let msgY = axisY - p.map(V0, 0.3, 2.0, 20, 110) - 15;
+    if (canPass) {
+      p.text('E > V₀ : 100% Transmission', W * 0.5, msgY);
+    } else {
+      p.text('E < V₀ : 100% Reflection', W * 0.5, msgY);
+    }
+  }
+
+  function drawProbabilityGraph() {
+    let gW = 200, gH = 70;
+    let gX = W - gW - 20, gY = H - gH - 20;
+
+    // Graph background
+    p.fill(18, 28, 43, 200);
+    p.stroke(36, 54, 79);
+    p.strokeWeight(1);
+    p.rect(gX, gY, gW, gH, 8);
+
+    // Title
+    p.noStroke();
+    p.fill(163, 194, 224);
+    p.textSize(10);
+    p.textAlign(p.LEFT);
+    p.text('Transmission vs Width', gX + 10, gY + 15);
+
+    // Plot line
+    let steps = 50;
+    p.noFill();
+    p.stroke(75, 209, 140);
+    p.strokeWeight(2);
+    p.beginShape();
+    for (let i = 0; i <= steps; i++) {
+      let w = p.map(i, 0, steps, 0.1, 3.0);
+      let tProb = calcT(E, V0, w);
+      let px = gX + p.map(i, 0, steps, 10, gW - 10);
+      let py = gY + gH - 10 - (tProb * (gH - 30));
+      p.vertex(px, py);
+    }
+    p.endShape();
+
+    // Current point marker
+    let mX = gX + p.map(barrierW, 0.1, 3.0, 10, gW - 10);
+    let mY = gY + gH - 10 - (T * (gH - 30));
+    p.noStroke();
+    p.fill(255);
+    p.circle(mX, mY, 6);
+  }
+
+  function drawLabels(axisY, bx1, bx2) {
+    let potH = p.map(V0, 0.3, 2.0, 20, 110);
+    let midX = (bx1 + bx2) / 2;
+
+    p.fill(163, 194, 224);
+    p.noStroke();
+    p.textSize(12);
+    p.textAlign(p.CENTER);
+    p.text(`V₀ = ${V0.toFixed(2)} eV`, midX, axisY - potH - 10);
+    
+    p.textSize(11);
+    p.fill(163, 194, 224, 150);
+    p.text(`${barrierW.toFixed(2)} nm`, midX, axisY + 20);
+
+    // Width indicator lines
+    p.stroke(163, 194, 224, 100);
+    p.strokeWeight(1);
+    p.line(bx1, axisY + 10, bx1, axisY + 15);
+    p.line(bx2, axisY + 10, bx2, axisY + 15);
+    p.line(bx1, axisY + 12, bx2, axisY + 12);
+
+    let ey = axisY - p.map(E, 0, Math.max(V0, 0.01), 0, potH);
+    let eColor = E >= V0 ? p.color(75, 209, 140) : p.color(242, 139, 70);
+    p.fill(eColor);
+    p.noStroke();
+    p.textAlign(p.RIGHT);
+    p.text(`E = ${E.toFixed(2)} eV`, W - 20, Math.max(20, ey - 8));
+
+    // Region labels
+    p.fill(255, 255, 255, 60);
+    p.textAlign(p.CENTER);
+    p.text('Region I', bx1 / 2, axisY - 10);
+    p.text('Region II', midX, axisY - 10);
+    p.text('Region III', bx2 + (W - bx2) / 2, axisY - 10);
+  }
+
+}, document.getElementById('qt-canvas'));
+</script>
+</body>
+</html>
