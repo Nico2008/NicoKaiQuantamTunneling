@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Fixed Rendering</title>
+<title>Cinematic Quantum Tunneling - Bulletproof</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -317,7 +317,6 @@ new p5(function(p) {
         }
     } 
     else {
-        // Classical State Machine
         if (classicalParticle) {
             let cp = classicalParticle;
             let canPass = E >= V0;
@@ -327,7 +326,6 @@ new p5(function(p) {
                 targetCamScale = 1.3;
                 targetCamX = W * 0.4 - cp.x * targetCamScale;
                 targetCamY = H * 0.5 - axisY * targetCamScale + 50;
-
                 if (cp.x >= bx1 - cp.r * 4) { phase = 2; animTimer = 0; }
             }
             else if (phase === 2) { 
@@ -339,7 +337,6 @@ new p5(function(p) {
                 if (cp.x >= bx1 - cp.r) {
                     cp.x = bx1 - cp.r;
                     phase = 3; animTimer = 0;
-                    
                     if (!canPass) {
                         for(let i=0; i<15; i++) sparks.push({ x: bx1, y: axisY-cp.r + p.random(-10,10), vx: p.random(-3, -0.5), vy: p.random(-2, 2), life: 255 });
                     }
@@ -352,7 +349,6 @@ new p5(function(p) {
                 } else {
                     cp.x += 0.5; 
                 }
-
                 if (animTimer > 60) {
                     phase = 4; cp.squish = 1.0;
                     if (!canPass) cp.v = -cp.v; 
@@ -375,7 +371,6 @@ new p5(function(p) {
         }
     }
 
-    // Camera Lerp
     camScale = p.lerp(camScale, targetCamScale, 0.08);
     camX = p.lerp(camX, targetCamX, 0.08);
     camY = p.lerp(camY, targetCamY, 0.08);
@@ -399,7 +394,6 @@ new p5(function(p) {
     if (phase !== 0) drawPhaseIndicator();
   };
 
-  // --- QUANTUM FLOW LOGIC ---
   function spawnFlowParticle(bx1, bx2, sigma) {
       let isTransmitting = p.random(1) < T;
       let depth = bx2; 
@@ -417,7 +411,7 @@ new p5(function(p) {
 
       flowParticles.push({
           x: bx1,
-          y: p.random(-sigma * 0.4, sigma * 0.4), // Safely bounded random Y
+          y: p.random(-sigma * 0.4, sigma * 0.4),
           dest: isTransmitting ? 'trans' : 'refl',
           maxDepth: depth,
           vx: E < V0 ? 2.0 : 3.0,
@@ -436,9 +430,7 @@ new p5(function(p) {
           fp.x += fp.vx * fp.dir;
 
           if (fp.dir === 1) { 
-              // Enforce a minimum velocity so transmitted particles don't freeze inside the barrier
               if (E < V0) fp.vx = Math.max(0.5, fp.vx * 0.95); 
-              
               if (fp.x >= fp.maxDepth) {
                   if (fp.dest === 'refl') {
                       fp.dir = -1; 
@@ -447,9 +439,7 @@ new p5(function(p) {
               }
           } else { 
               fp.vx = Math.min(fp.vx * 1.1, baseSpeed); 
-              if (fp.x < bx1 - 20) {
-                  flowParticles.splice(i, 1); 
-              }
+              if (fp.x < bx1 - 20) { flowParticles.splice(i, 1); }
           }
       }
   }
@@ -467,13 +457,12 @@ new p5(function(p) {
       }
       p.endShape();
 
-      // Crash-Safe Particle Path Rendering
       p.strokeWeight(2.5 / camScale);
       for (let fp of flowParticles) {
           let col = fp.dest === 'trans' ? p.color(46, 255, 132) : p.color(255, 132, 46);
-          let r = p.red(col), g = p.green(col), b = p.blue(col);
+          let r = Math.round(p.red(col)), g = Math.round(p.green(col)), b = Math.round(p.blue(col));
 
-          // Draw the history using robust line segments instead of changing stroke inside beginShape
+          // Safe rendering of line histories
           if (fp.history.length > 1) {
               for (let j = 0; j < fp.history.length - 1; j++) {
                   let h1 = fp.history[j];
@@ -484,30 +473,29 @@ new p5(function(p) {
               }
           }
           
-          // Head (Using CSS compliant RGBA string for crash prevention)
+          // Custom primitive glow (Removes all risk of shadowBlur crashes)
           p.noStroke();
-          p.fill(r, g, b);
-          p.drawingContext.shadowBlur = 8 * camScale;
-          p.drawingContext.shadowColor = `rgba(${r},${g},${b},1)`;
+          p.fill(r, g, b, 50);
+          p.circle(fp.x, axisY - Math.abs(fp.y), 9 / camScale);
+          p.fill(r, g, b, 255);
           p.circle(fp.x, axisY - Math.abs(fp.y), 3 / camScale);
-          p.drawingContext.shadowBlur = 0;
       }
   }
 
-  // --- DRAWING HELPERS ---
   function drawEnvironment(axisY, bx1, bx2) {
     let potH = p.map(V0, 0.3, 2.0, 20, 110);
     
+    // Grid Lines 
     p.stroke(25, 35, 50);
     p.strokeWeight(1 / camScale);
     for (let x = -W; x < W*2; x += 40) p.line(x, -H, x, H*2);
 
+    // Barrier (Replaced gradient with safe primitive opacity layers)
     p.noStroke();
-    let fillGrad = p.drawingContext.createLinearGradient(0, axisY - potH, 0, axisY);
-    fillGrad.addColorStop(0, 'rgba(46, 182, 255, 0.15)');
-    fillGrad.addColorStop(1, 'rgba(46, 182, 255, 0.02)');
-    p.drawingContext.fillStyle = fillGrad;
+    p.fill(46, 182, 255, 15);
     p.rect(bx1, axisY - potH, bx2 - bx1, potH);
+    p.fill(46, 182, 255, 25);
+    p.rect(bx1, axisY - potH, bx2 - bx1, potH * 0.4);
 
     p.stroke(46, 182, 255, 150);
     p.strokeWeight(2 / camScale);
@@ -519,12 +507,12 @@ new p5(function(p) {
     p.strokeWeight(2 / camScale);
     p.line(-W, axisY, W*2, axisY);
 
+    // Energy line (Replaced unsafe setLineDash with safe transparent line)
     let ey = axisY - p.map(E, 0, Math.max(V0, 0.01), 0, potH);
-    p.stroke(E >= V0 ? '#2eff84' : '#ff842e');
+    let eCol = E >= V0 ? p.color(46, 255, 132, 180) : p.color(255, 132, 46, 180);
+    p.stroke(eCol);
     p.strokeWeight(1.5 / camScale);
-    p.drawingContext.setLineDash([5 / camScale, 5 / camScale]);
     p.line(-W, ey, W*2, ey);
-    p.drawingContext.setLineDash([]);
   }
 
   function drawWaveEnvelope(wp, axisY) {
@@ -537,21 +525,23 @@ new p5(function(p) {
       pts.push({ x: px, y: axisY - density * drawScale });
     }
 
-    let c = wp.col;
-    p.noStroke();
-    p.fill(p.red(c), p.green(c), p.blue(c), 40);
-    p.beginShape();
-    p.vertex(pts[0].x, axisY);
-    for (let pt of pts) p.vertex(pt.x, pt.y);
-    p.vertex(pts[pts.length-1].x, axisY);
-    p.endShape();
-    
-    p.stroke(c);
-    p.strokeWeight(2.5 / camScale);
-    p.noFill();
-    p.beginShape();
-    for (let pt of pts) p.vertex(pt.x, pt.y);
-    p.endShape();
+    if (pts.length > 0) {
+        let c = wp.col;
+        p.noStroke();
+        p.fill(p.red(c), p.green(c), p.blue(c), 40);
+        p.beginShape();
+        p.vertex(pts[0].x, axisY);
+        for (let pt of pts) p.vertex(pt.x, pt.y);
+        p.vertex(pts[pts.length-1].x, axisY);
+        p.endShape();
+        
+        p.stroke(c);
+        p.strokeWeight(2.5 / camScale);
+        p.noFill();
+        p.beginShape();
+        for (let pt of pts) p.vertex(pt.x, pt.y);
+        p.endShape();
+    }
   }
 
   function drawClassicalParticle(axisY) {
@@ -593,7 +583,6 @@ new p5(function(p) {
           let s = sparks[i];
           s.x += s.vx; s.y += s.vy;
           s.life -= 15;
-          // Protect against negative alpha values
           p.stroke(255, 132, 46, Math.max(0, s.life));
           p.strokeWeight(2 / camScale);
           p.line(s.x, s.y, s.x - s.vx*2, s.y - s.vy*2);
