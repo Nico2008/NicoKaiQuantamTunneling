@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Bulletproof</title>
+<title>Cinematic Quantum Tunneling - Guaranteed Stable</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -158,13 +158,16 @@ new p5(function(p) {
 
   function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
-    if (E_ === V0_) return 1 / (1 + (2 * 0.038 * V0_ * a * a)); 
+    // FIXED: Prevent divide by zero if E is exactly equal to V0
+    if (Math.abs(E_ - V0_) < 0.005) {
+      return 1 / (1 + (2 * 0.038 * V0_ * a * a)); 
+    }
     if (E_ > V0_) {
-      let k1 = Math.sqrt(E_), k2 = Math.sqrt(E_ - V0_);
+      let k1 = Math.sqrt(E_), k2 = Math.sqrt(Math.max(0.0001, E_ - V0_));
       let sinSq = Math.pow(Math.sin(k2 * a), 2);
       return 1 / (1 + (Math.pow(k1*k1 - k2*k2, 2) * sinSq) / (4 * k1*k1 * k2*k2));
     } else {
-      let kappa = Math.sqrt(V0_ - E_);
+      let kappa = Math.sqrt(Math.max(0.0001, V0_ - E_));
       let sinhSq = Math.pow(Math.sinh(kappa * a), 2);
       return 1 / (1 + (V0_ * V0_ * sinhSq) / (4 * E_ * (V0_ - E_)));
     }
@@ -239,6 +242,10 @@ new p5(function(p) {
     
     T = calcT(E, V0, barrierW);
     R = 1 - T;
+    
+    // Safety fallback for UI
+    if (isNaN(T)) { T = 0; R = 1; }
+    
     document.getElementById('statT').textContent = (T * 100).toFixed(1) + '%';
     document.getElementById('statR').textContent = (R * 100).toFixed(1) + '%';
   }
@@ -345,7 +352,8 @@ new p5(function(p) {
             else if (phase === 3) { 
                 animTimer++;
                 if (!canPass) {
-                    cp.squish = p.map(Math.sin(animTimer * 0.1), 0, 1, 1.0, 0.5);
+                    // Safe mapped squish calculation
+                    cp.squish = p.map(Math.sin(animTimer * 0.1), -1, 1, 1.0, 0.5, true);
                 } else {
                     cp.x += 0.5; 
                 }
@@ -371,7 +379,10 @@ new p5(function(p) {
         }
     }
 
+    // Safe Camera Lerping
     camScale = p.lerp(camScale, targetCamScale, 0.08);
+    // Explicit hard limit to protect matrix scaling
+    camScale = Math.max(0.1, Math.min(camScale, 4.0));
     camX = p.lerp(camX, targetCamX, 0.08);
     camY = p.lerp(camY, targetCamY, 0.08);
 
@@ -400,7 +411,7 @@ new p5(function(p) {
       
       if (!isTransmitting) {
           if (E < V0) {
-              let kappa = Math.sqrt(V0 - E);
+              let kappa = Math.sqrt(Math.max(0.0001, V0 - E));
               let u = p.random(0.01, 1); 
               let penetration = -Math.log(u) / (2 * kappa * 0.5); 
               depth = bx1 + Math.min(penetration, bx2 - bx1 - 2); 
@@ -451,8 +462,8 @@ new p5(function(p) {
       p.beginShape();
       for (let px = bx1; px <= bx2; px += 2) {
          let x = px - bx1;
-         let val = E < V0 ? Math.exp(-Math.sqrt(V0 - E) * 0.1 * x) : 1.0;
-         let envelope = p.map(px, bx1, bx2, 1.0, Math.sqrt(T));
+         let val = E < V0 ? Math.exp(-Math.sqrt(Math.max(0.0001, V0 - E)) * 0.1 * x) : 1.0;
+         let envelope = p.map(px, bx1, bx2, 1.0, Math.sqrt(Math.max(0, T)), true);
          p.vertex(px, axisY - (val * envelope * 55));
       }
       p.endShape();
@@ -462,22 +473,21 @@ new p5(function(p) {
           let col = fp.dest === 'trans' ? p.color(46, 255, 132) : p.color(255, 132, 46);
           let r = Math.round(p.red(col)), g = Math.round(p.green(col)), b = Math.round(p.blue(col));
 
-          // Safe rendering of line histories
           if (fp.history.length > 1) {
               for (let j = 0; j < fp.history.length - 1; j++) {
                   let h1 = fp.history[j];
                   let h2 = fp.history[j+1];
-                  let alpha = p.map(j, 0, fp.history.length - 1, 0, 255);
+                  let alpha = p.map(j, 0, fp.history.length - 1, 0, 255, true);
                   p.stroke(r, g, b, alpha);
                   p.line(h1.x, axisY - Math.abs(h1.y), h2.x, axisY - Math.abs(h2.y));
               }
           }
           
-          // Custom primitive glow (Removes all risk of shadowBlur crashes)
+          // Pure primitive safe rendering (No drawingContext used anywhere)
           p.noStroke();
-          p.fill(r, g, b, 50);
-          p.circle(fp.x, axisY - Math.abs(fp.y), 9 / camScale);
-          p.fill(r, g, b, 255);
+          p.fill(r, g, b, 40); // Outer transparent glow layer
+          p.circle(fp.x, axisY - Math.abs(fp.y), 10 / camScale);
+          p.fill(r, g, b, 255); // Solid core layer
           p.circle(fp.x, axisY - Math.abs(fp.y), 3 / camScale);
       }
   }
@@ -490,12 +500,12 @@ new p5(function(p) {
     p.strokeWeight(1 / camScale);
     for (let x = -W; x < W*2; x += 40) p.line(x, -H, x, H*2);
 
-    // Barrier (Replaced gradient with safe primitive opacity layers)
+    // Guaranteed safe solid overlapping fills (No createLinearGradient)
     p.noStroke();
-    p.fill(46, 182, 255, 15);
+    p.fill(46, 182, 255, 25); // Light outer layer
     p.rect(bx1, axisY - potH, bx2 - bx1, potH);
-    p.fill(46, 182, 255, 25);
-    p.rect(bx1, axisY - potH, bx2 - bx1, potH * 0.4);
+    p.fill(46, 182, 255, 40); // Darker base layer
+    p.rect(bx1, axisY - potH * 0.3, bx2 - bx1, potH * 0.3);
 
     p.stroke(46, 182, 255, 150);
     p.strokeWeight(2 / camScale);
@@ -507,7 +517,7 @@ new p5(function(p) {
     p.strokeWeight(2 / camScale);
     p.line(-W, axisY, W*2, axisY);
 
-    // Energy line (Replaced unsafe setLineDash with safe transparent line)
+    // Standard solid line
     let ey = axisY - p.map(E, 0, Math.max(V0, 0.01), 0, potH);
     let eCol = E >= V0 ? p.color(46, 255, 132, 180) : p.color(255, 132, 46, 180);
     p.stroke(eCol);
@@ -566,6 +576,7 @@ new p5(function(p) {
 
     let cColor = E >= V0 ? p.color(46, 255, 132) : p.color(255, 132, 46);
     
+    // Primitive glow layers
     p.noStroke();
     p.fill(p.red(cColor), p.green(cColor), p.blue(cColor), 60);
     p.circle(0, 0, cp.r * 2.8);
