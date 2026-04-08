@@ -3,88 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Realistic Quantum Tunneling</title>
+<title>Cinematic Quantum Tunneling</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
-    --bg-main: #06090e;
-    --bg-panel: #0d141f;
-    --border: #1e2d42;
-    --text-main: #8ba8c9;
-    --text-light: #e0eaf5;
-    --accent-blue: #00d2ff;
-    --accent-green: #00ff88;
-    --accent-orange: #ff7300;
+    --bg-main: #0a0e14;
+    --bg-panel: #131b26;
+    --border: #223247;
+    --text-main: #9cb4d4;
+    --text-light: #e6f0fa;
+    --accent-blue: #3bb2f2;
+    --accent-green: #3bf281;
+    --accent-orange: #f28a3b;
+    --accent-purple: #b86bfc;
   }
-  body { margin: 0; padding: 20px; background: #030508; display: flex; justify-content: center; font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; padding: 20px; background: #05070a; display: flex; justify-content: center; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
   
   #qt-wrap { 
     background: var(--bg-main); 
-    border-radius: 14px; 
+    border-radius: 12px; 
     overflow: hidden; 
     border: 1px solid var(--border); 
-    box-shadow: 0 15px 40px rgba(0,210,255,0.05), 0 5px 15px rgba(0,0,0,0.6);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     width: 100%;
-    max-width: 850px;
+    max-width: 900px;
   }
   
   #qt-header { 
-    background: var(--bg-panel); 
-    padding: 14px 22px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    border-bottom: 1px solid var(--border); 
+    background: var(--bg-panel); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); 
   }
   
   #qt-header .title { color: var(--text-light); font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; letter-spacing: 0.5px; }
-  #qt-header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-blue); box-shadow: 0 0 10px var(--accent-blue); }
+  #qt-header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-purple); box-shadow: 0 0 12px var(--accent-purple); animation: pulse 2s infinite; }
   
-  #qt-tabs { display: flex; gap: 8px; background: #080c12; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+  @keyframes pulse { 0% { opacity: 0.5; box-shadow: 0 0 5px var(--accent-purple); } 50% { opacity: 1; box-shadow: 0 0 15px var(--accent-purple); } 100% { opacity: 0.5; box-shadow: 0 0 5px var(--accent-purple); } }
+
+  #qt-tabs { display: flex; gap: 8px; background: #0b1017; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
   .tab-btn { 
     background: transparent; border: none; color: var(--text-main); font-size: 13px; 
-    padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;
+    padding: 6px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;
   }
   .tab-btn:hover { color: var(--text-light); }
-  .tab-btn.active { background: #1a283b; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .tab-btn.active { background: #1c2a3d; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
   
-  #qt-canvas { display: block; width: 100%; height: 380px; }
+  #qt-canvas { display: block; width: 100%; height: 420px; cursor: crosshair; }
   
-  #qt-controls { background: var(--bg-panel); border-top: 1px solid var(--border); padding: 22px; display: flex; flex-wrap: wrap; gap: 24px; }
+  #qt-controls { background: var(--bg-panel); border-top: 1px solid var(--border); padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; }
   
   .control-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 150px; }
   .control-label { color: var(--text-main); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
-  .control-row { display: flex; align-items: center; gap: 12px; background: #06090e; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); }
-  .control-val { color: var(--accent-blue); font-size: 14px; font-weight: 700; min-width: 35px; text-align: right; }
+  .control-row { display: flex; align-items: center; gap: 12px; background: #0a0e14; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); }
+  .control-val { color: var(--text-light); font-size: 14px; font-weight: 700; min-width: 35px; text-align: right; }
   
-  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: #1e2d42; border-radius: 2px; outline: none; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent-blue); cursor: pointer; box-shadow: 0 0 8px rgba(0, 210, 255, 0.5); transition: transform 0.1s; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: #1c2a3d; border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--text-light); cursor: pointer; transition: transform 0.1s; }
   input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   
   .left-col { display: flex; flex-direction: column; gap: 16px; flex: 1.2; min-width: 260px; }
   .right-col { display: flex; flex-direction: column; gap: 16px; flex: 2; min-width: 320px; }
   
   #qt-stats { display: flex; gap: 12px; }
-  .stat-card { background: #06090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; flex: 1; text-align: center; position: relative; overflow: hidden; }
-  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--accent-green); opacity: 0.5; }
-  .stat-card:nth-child(2)::before { background: var(--accent-orange); }
+  .stat-card { background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; padding: 12px; flex: 1; text-align: center; }
   .stat-val { font-size: 22px; font-weight: 700; font-family: monospace; }
   .stat-lbl { font-size: 10px; color: var(--text-main); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
   
   .btn-row { display: flex; gap: 12px; }
-  .action-btn { padding: 12px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; transition: all 0.15s; flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
-  .btn-fire { background: linear-gradient(135deg, #ff7300, #ff3b00); color: #fff; box-shadow: 0 4px 15px rgba(255, 115, 0, 0.3); border: 1px solid rgba(255,255,255,0.1); }
-  .btn-fire:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .action-btn { padding: 14px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; transition: all 0.15s; flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
+  .btn-fire { background: var(--accent-purple); color: #fff; box-shadow: 0 4px 15px rgba(184, 107, 252, 0.3); }
+  .btn-fire:hover { filter: brightness(1.1); transform: translateY(-2px); }
   .btn-fire:active { transform: translateY(1px); box-shadow: none; }
   .btn-reset { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
-  .btn-reset:hover { background: #1a283b; color: #fff; }
+  .btn-reset:hover { background: #1c2a3d; color: #fff; }
 </style>
 </head>
 <body>
 
 <div id="qt-wrap">
   <div id="qt-header">
-    <div class="title"><div class="dot"></div>Realistic Quantum Tunneling</div>
+    <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div id="qt-tabs">
       <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
       <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -94,8 +90,8 @@
   <div id="qt-controls">
     <div class="left-col">
       <div class="btn-row">
-        <button class="action-btn btn-fire" id="btnFire">&#9654; Fire Particle</button>
-        <button class="action-btn btn-reset" id="btnReset">&#8635; Reset</button>
+        <button class="action-btn btn-fire" id="btnFire">Launch Particle</button>
+        <button class="action-btn btn-reset" id="btnReset">Reset</button>
       </div>
       <div id="qt-stats">
         <div class="stat-card">
@@ -159,13 +155,21 @@ new p5(function(p) {
   let W, H;
   const AXIS_Y_FRAC = 0.65;
 
-  let wavePackets = [];
-  let probabilitySwarm = [];
-  let fired = false;
-  let framesSinceFire = 0;
-
   let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8;
   let T = 0, R = 1;
+
+  // Animation State Machine
+  // 0: Idle, 1: Approach, 2: Zoom & Pause, 3: Inside Interaction, 4: Zoom Out, 5: Depart
+  let phase = 0; 
+  let animTimer = 0;
+  
+  // Camera Variables
+  let camX = 0, camY = 0, camScale = 1.0;
+  let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
+
+  // Physics Objects
+  let waves = [];
+  let classicalParticle = null;
 
   function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
@@ -181,51 +185,27 @@ new p5(function(p) {
     }
   }
 
-  function updateStats() {
-    T = calcT(E, V0, barrierW);
-    R = 1 - T;
-    document.getElementById('statT').textContent = (T * 100).toFixed(1) + '%';
-    document.getElementById('statR').textContent = (R * 100).toFixed(1) + '%';
-  }
-
   function doReset() {
-    wavePackets = [];
-    probabilitySwarm = [];
-    fired = false;
-    framesSinceFire = 0;
+    waves = [];
+    classicalParticle = null;
+    phase = 0;
+    animTimer = 0;
+    targetCamScale = 1.0;
+    targetCamX = 0; targetCamY = 0;
+    camScale = 1.0; camX = 0; camY = 0; // Snap camera back instantly
+    
     document.getElementById('btnFire').disabled = false;
     document.getElementById('btnFire').style.opacity = 1;
+    document.getElementById('btnFire').textContent = "Launch Particle";
   }
   window.doReset = doReset;
 
   function buildWave(cx, amp, sigma, k0, type) {
     let col;
-    if (type === 'transmitted') col = [0, 255, 136];
-    else if (type === 'reflected') col = [255, 115, 0];
-    else col = [0, 210, 255]; 
+    if (type === 'transmitted') col = p.color(59, 242, 129); // Green
+    else if (type === 'reflected') col = p.color(242, 138, 59); // Orange
+    else col = p.color(59, 178, 242); // Blue
     return { cx, amp, sigma, k0, col, type, dead: false };
-  }
-
-  function initSwarm(startX, sigma) {
-    probabilitySwarm = [];
-    let numDots = 250;
-    for (let i = 0; i < numDots; i++) {
-      // Gaussian distribution for dots
-      let xOff = p.randomGaussian(0, sigma * 0.7);
-      let yOff = p.randomGaussian(0, 15);
-      // Pre-determine destiny to simulate wave-function collapse / branching
-      let destiny = p.random(1) < T ? 'transmitted' : 'reflected';
-      
-      probabilitySwarm.push({
-        xOffset: xOff,
-        yOffset: yOff,
-        baseX: startX,
-        x: startX + xOff,
-        destiny: destiny,
-        state: 'incident', // incident, penetrating, transmitted, reflected
-        opacity: 255
-      });
-    }
   }
 
   p.setup = function() {
@@ -238,16 +218,21 @@ new p5(function(p) {
     updateParams();
     
     document.getElementById('btnFire').onclick = () => { 
-      if (!fired) { 
-        fired = true; 
-        let startX = W * 0.15;
+      if (phase === 0) { 
+        phase = 1; 
+        let startX = -W * 0.2; // Start offscreen
         let sigma = spread * 40;
         let k0 = Math.sqrt(E) * 3.0;
-        wavePackets = [buildWave(startX, 1.0, sigma, k0, 'incident')];
-        initSwarm(startX, sigma);
+        
+        if (simMode === 'quantum') {
+            waves = [buildWave(startX, 1.0, sigma, k0, 'incident')];
+        } else {
+            classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
+        }
         
         document.getElementById('btnFire').disabled = true;
         document.getElementById('btnFire').style.opacity = 0.5;
+        document.getElementById('btnFire').textContent = "In Motion...";
       } 
     };
     document.getElementById('btnReset').onclick = doReset;
@@ -255,7 +240,7 @@ new p5(function(p) {
     ['energy','height','width','spread'].forEach(id => {
       document.getElementById(id+'Slider').oninput = function() {
         updateParams();
-        if(!fired) doReset(); 
+        if(phase === 0) doReset(); 
       };
     });
   };
@@ -270,7 +255,11 @@ new p5(function(p) {
     document.getElementById('heightVal').textContent = V0.toFixed(2);
     document.getElementById('widthVal').textContent = barrierW.toFixed(2);
     document.getElementById('spreadVal').textContent = spread.toFixed(2);
-    updateStats();
+    
+    T = calcT(E, V0, barrierW);
+    R = 1 - T;
+    document.getElementById('statT').textContent = (T * 100).toFixed(1) + '%';
+    document.getElementById('statR').textContent = (R * 100).toFixed(1) + '%';
   }
 
   function getBarrierBounds() {
@@ -281,308 +270,339 @@ new p5(function(p) {
   }
 
   p.draw = function() {
-    p.background(6, 9, 14);
+    p.background(10, 14, 20);
+    
     let axisY = H * AXIS_Y_FRAC;
     let { bx1, bx2 } = getBarrierBounds();
+    let bMid = (bx1 + bx2) / 2;
 
-    drawPotentialEnvironment(axisY, bx1, bx2);
+    // --- STATE MACHINE & CAMERA LOGIC ---
+    let baseSpeed = 3.0 + Math.sqrt(E) * 2.0;
 
     if (simMode === 'quantum') {
-      drawQuantumScene(axisY, bx1, bx2);
+        let mainWave = waves.find(w => w.type === 'incident');
+        
+        if (phase === 1) { // Following incident wave
+            mainWave.cx += baseSpeed;
+            targetCamScale = 1.4;
+            targetCamX = W * 0.4 - mainWave.cx * targetCamScale;
+            targetCamY = H * 0.5 - axisY * targetCamScale + 50;
+
+            // Trigger Zoom In
+            if (mainWave.cx >= bx1 - mainWave.sigma * 1.5) {
+                phase = 2;
+                animTimer = 0;
+            }
+        } 
+        else if (phase === 2) { // Zooming into barrier
+            mainWave.cx += baseSpeed * 0.15; // Slow motion
+            targetCamScale = 2.4;
+            targetCamX = W * 0.5 - bMid * targetCamScale;
+            targetCamY = H * 0.5 - axisY * targetCamScale + 80;
+
+            animTimer++;
+            if (animTimer > 40) { phase = 3; animTimer = 0; }
+        }
+        else if (phase === 3) { // Inside interaction (Seeping)
+            mainWave.cx += baseSpeed * 0.05; // Extremely slow
+            targetCamScale = 2.4; // Hold zoom
+            
+            animTimer++;
+            if (animTimer > 90) { 
+                // Execute Split!
+                waves.push(buildWave(bx2, Math.sqrt(T), mainWave.sigma, mainWave.k0, 'transmitted'));
+                waves.push(buildWave(bx1, Math.sqrt(R), mainWave.sigma, -mainWave.k0, 'reflected'));
+                mainWave.dead = true;
+                phase = 4; 
+                animTimer = 0; 
+            }
+        }
+        else if (phase === 4) { // Zooming out
+            targetCamScale = 1.0;
+            targetCamX = 0;
+            targetCamY = 0;
+            
+            for (let w of waves) {
+                if (w.dead) continue;
+                if (w.type === 'transmitted') w.cx += baseSpeed * 0.5;
+                if (w.type === 'reflected') w.cx -= baseSpeed * 0.5;
+            }
+
+            // Once camera is mostly reset, move to phase 5
+            if (Math.abs(camScale - 1.0) < 0.02) phase = 5;
+        }
+        else if (phase === 5) { // Departing normal speed
+            for (let w of waves) {
+                if (w.dead) continue;
+                if (w.type === 'transmitted') w.cx += baseSpeed;
+                if (w.type === 'reflected') w.cx -= baseSpeed;
+                
+                // Reset condition
+                if ((w.type === 'transmitted' && w.cx > W + w.sigma*3) || 
+                    (w.type === 'reflected' && w.cx < -w.sigma*3)) {
+                    w.dead = true;
+                }
+            }
+            if (waves.every(w => w.dead)) doReset();
+        }
+    } 
+    else {
+        // CLASSICAL CAMERA LOGIC
+        if (classicalParticle) {
+            let cp = classicalParticle;
+            let canPass = E >= V0;
+
+            if (phase === 1) { // Approach
+                cp.x += cp.v;
+                targetCamScale = 1.4;
+                targetCamX = W * 0.4 - cp.x * targetCamScale;
+                targetCamY = H * 0.5 - axisY * targetCamScale + 50;
+
+                if (cp.x >= bx1 - cp.r * 4) {
+                    phase = 2; animTimer = 0;
+                }
+            }
+            else if (phase === 2) { // Zoom to hit
+                cp.x += cp.v * 0.2; // slow mo
+                targetCamScale = 2.4;
+                targetCamX = W * 0.5 - bMid * targetCamScale;
+                targetCamY = H * 0.5 - axisY * targetCamScale + 80;
+
+                if (cp.x >= bx1 - cp.r) {
+                    cp.x = bx1 - cp.r;
+                    phase = 3; animTimer = 0;
+                }
+            }
+            else if (phase === 3) { // Interaction
+                animTimer++;
+                if (!canPass) {
+                    // Compression animation
+                    cp.squish = p.map(Math.sin(animTimer * 0.1), 0, 1, 1.0, 0.5);
+                } else {
+                    // Slowly struggle over
+                    cp.x += 0.5;
+                }
+
+                if (animTimer > 60) {
+                    phase = 4;
+                    cp.squish = 1.0;
+                    if (!canPass) cp.v = -cp.v; // Bounce back
+                }
+            }
+            else if (phase === 4) { // Zoom out
+                targetCamScale = 1.0;
+                targetCamX = 0; targetCamY = 0;
+                
+                if (canPass) {
+                    cp.x += 3.0 * Math.sqrt(Math.max(0.01, E - V0)); // Slower inside
+                    if (cp.x > bx2 + cp.r) { phase = 5; cp.v = 3.0 * Math.sqrt(E); }
+                } else {
+                    cp.x += cp.v;
+                    if (Math.abs(camScale - 1.0) < 0.02) phase = 5;
+                }
+            }
+            else if (phase === 5) { // Depart
+                cp.x += cp.v;
+                if (cp.x > W + 50 || cp.x < -50) doReset();
+            }
+        }
+    }
+
+    // Apply Camera Lerping
+    camScale = p.lerp(camScale, targetCamScale, 0.06);
+    camX = p.lerp(camX, targetCamX, 0.06);
+    camY = p.lerp(camY, targetCamY, 0.06);
+
+    p.push();
+    p.translate(camX, camY);
+    p.scale(camScale);
+
+    // --- DRAW ENVIRONMENT ---
+    drawEnvironment(axisY, bx1, bx2);
+
+    // --- DRAW SCENE ---
+    if (simMode === 'quantum') {
+        // Draw the Interaction Seep (Phase 2 & 3)
+        if ((phase === 2 || phase === 3) && waves.length > 0) {
+            drawEvanescentSeep(axisY, bx1, bx2);
+        }
+
+        for (let w of waves) {
+            if (!w.dead) drawWaveEnvelope(w, axisY);
+        }
     } else {
-      drawClassicalScene(axisY, bx1, bx2);
+        drawClassicalParticle(axisY);
+    }
+
+    p.pop(); // End Camera Transform
+
+    // Fixed UI Overlays (Not affected by camera zoom)
+    if (phase !== 0) {
+        drawPhaseIndicator();
     }
   };
 
-  function drawPotentialEnvironment(axisY, bx1, bx2) {
+  function drawEnvironment(axisY, bx1, bx2) {
     let potH = p.map(V0, 0.3, 2.0, 20, 110);
     
-    // Abstract grid
-    p.stroke(25, 35, 50);
-    p.strokeWeight(1);
-    for (let x = 0; x < W; x += 40) p.line(x, 0, x, axisY);
+    // Grid Lines (Scaled)
+    p.stroke(20, 30, 45);
+    p.strokeWeight(1 / camScale);
+    for (let x = -W; x < W*2; x += 50) p.line(x, -H, x, H*2);
 
-    // Glowing Barrier Body
-    let barrierGrad = p.drawingContext.createLinearGradient(0, axisY - potH, 0, axisY);
-    barrierGrad.addColorStop(0, 'rgba(0, 150, 255, 0.3)');
-    barrierGrad.addColorStop(1, 'rgba(0, 50, 100, 0.8)');
-    p.drawingContext.fillStyle = barrierGrad;
+    // The Barrier Box
     p.noStroke();
+    let fillGrad = p.drawingContext.createLinearGradient(0, axisY - potH, 0, axisY);
+    fillGrad.addColorStop(0, 'rgba(59, 178, 242, 0.2)');
+    fillGrad.addColorStop(1, 'rgba(59, 178, 242, 0.05)');
+    p.drawingContext.fillStyle = fillGrad;
     p.rect(bx1, axisY - potH, bx2 - bx1, potH);
 
-    // Glowing Barrier Edges
-    p.drawingContext.shadowBlur = 15;
-    p.drawingContext.shadowColor = 'rgba(0, 210, 255, 0.8)';
-    p.stroke(0, 210, 255);
-    p.strokeWeight(2);
+    // Barrier Edges
+    p.stroke(59, 178, 242, 200);
+    p.strokeWeight(2 / camScale);
+    p.line(bx1, axisY, bx1, axisY - potH);
+    p.line(bx2, axisY, bx2, axisY - potH);
     p.line(bx1, axisY - potH, bx2, axisY - potH);
-    p.line(bx1, axisY - potH, bx1, axisY);
-    p.line(bx2, axisY - potH, bx2, axisY);
-    p.drawingContext.shadowBlur = 0; // reset
 
-    // Energy line
+    // Ground line
+    p.stroke(50, 70, 90);
+    p.strokeWeight(2 / camScale);
+    p.line(-W, axisY, W*2, axisY);
+
+    // Energy Level Line
     let ey = axisY - p.map(E, 0, Math.max(V0, 0.01), 0, potH);
-    let eColor = E >= V0 ? '#00ff88' : '#ff7300';
-    p.stroke(eColor);
-    p.strokeWeight(1.5);
-    p.drawingContext.setLineDash([5, 5]);
-    p.line(0, ey, W, ey);
+    p.stroke(E >= V0 ? '#3bf281' : '#f28a3b');
+    p.strokeWeight(1.5 / camScale);
+    p.drawingContext.setLineDash([5 / camScale, 5 / camScale]);
+    p.line(-W, ey, W*2, ey);
     p.drawingContext.setLineDash([]);
-    
-    // Labels
-    p.fill(255, 255, 255, 150);
-    p.noStroke();
-    p.textSize(12);
-    p.textAlign(p.LEFT);
-    p.text(`E = ${E.toFixed(2)} eV`, 20, ey - 10);
-    p.textAlign(p.CENTER);
-    p.text(`V₀ = ${V0.toFixed(2)} eV`, (bx1+bx2)/2, axisY - potH - 15);
-
-    // Base x-axis
-    p.stroke(60, 90, 120);
-    p.strokeWeight(2);
-    p.line(0, axisY, W, axisY);
   }
 
-  function drawQuantumScene(axisY, bx1, bx2) {
-    if (!fired || wavePackets.length === 0) return;
-    
-    let baseSpeed = 2.0 + Math.sqrt(E) * 1.5;
-    let mainWave = wavePackets.find(w => w.type === 'incident');
-    
-    // Wave Packet Logic
-    if (mainWave) {
-        mainWave.cx += baseSpeed;
-        if (mainWave.cx >= bx1 && wavePackets.length === 1) {
-            wavePackets.push(buildWave(bx2, Math.sqrt(T), mainWave.sigma, mainWave.k0, 'transmitted'));
-            wavePackets.push(buildWave(bx1, Math.sqrt(R), mainWave.sigma, -mainWave.k0, 'reflected'));
-            mainWave.dead = true; 
-        }
-    }
+  function drawWaveEnvelope(wp, axisY) {
+    let pts = [];
+    let drawScale = 55; 
 
-    for (let wp of wavePackets) {
-      if (wp.dead) continue;
-      if (wp.type === 'transmitted') wp.cx += baseSpeed;
-      if (wp.type === 'reflected') wp.cx -= baseSpeed;
-      if (wp.cx < -wp.sigma * 4 || wp.cx > W + wp.sigma * 4) wp.dead = true;
-    }
-
-    // Swarm (Particles inside barrier) Logic
-    drawSwarm(axisY, bx1, bx2, baseSpeed);
-
-    // Draw Evanescent Wave (Fluid Seep)
-    if (mainWave && mainWave.cx > bx1 - mainWave.sigma*2 && mainWave.cx < bx2 + mainWave.sigma*2) {
-        drawInternalWave(axisY, bx1, bx2, mainWave.cx);
-    }
-
-    // Draw Macroscopic Wave Envelopes
-    for (let wp of wavePackets) {
-      if (!wp.dead) drawWavePacket(wp, axisY);
-    }
-
-    if (wavePackets.every(w => w.dead)) {
-        fired = false;
-        document.getElementById('btnFire').disabled = false;
-        document.getElementById('btnFire').style.opacity = 1;
-    }
-  }
-
-  function drawSwarm(axisY, bx1, bx2, speed) {
-    p.noStroke();
-    let mainWave = wavePackets.find(w => w.type === 'incident');
-    let refWave = wavePackets.find(w => w.type === 'reflected');
-    let transWave = wavePackets.find(w => w.type === 'transmitted');
-
-    for (let dot of probabilitySwarm) {
-      // Update positions
-      if (dot.state === 'incident') {
-        if (mainWave) dot.x = mainWave.cx + dot.xOffset;
-        if (dot.x >= bx1) {
-          dot.state = dot.destiny === 'reflected' ? 'penetrating' : 'tunneling';
-          dot.penetrationDepth = p.random(2, 15); // How far reflecting dots seep in
-        }
-      } 
-      else if (dot.state === 'penetrating') {
-        dot.x += speed * 0.5;
-        dot.opacity -= 20; // fade out quickly as they turn around
-        if (dot.x > bx1 + dot.penetrationDepth) {
-          dot.state = 'reflected';
-        }
-      }
-      else if (dot.state === 'tunneling') {
-        dot.x += speed * 0.8; // Move through barrier
-        
-        // Exponential decay of probability inside barrier (visualized via opacity)
-        if (E < V0) {
-            let pctThrough = (dot.x - bx1) / (bx2 - bx1);
-            dot.opacity = 255 * (1 - pctThrough) + (255 * T * pctThrough); 
-        }
-        
-        if (dot.x >= bx2) dot.state = 'transmitted';
-      }
-      else if (dot.state === 'reflected') {
-        if (refWave) dot.x = refWave.cx + dot.xOffset;
-        dot.opacity = Math.min(255, dot.opacity + 10); // Fade back in
-      }
-      else if (dot.state === 'transmitted') {
-        if (transWave) dot.x = transWave.cx + dot.xOffset;
-      }
-
-      // Draw dot
-      if (dot.opacity > 5) {
-        let col = [0, 210, 255]; // default blue
-        if (dot.state === 'reflected' || dot.state === 'penetrating') col = [255, 115, 0];
-        if (dot.state === 'transmitted' || dot.state === 'tunneling') col = [0, 255, 136];
-        
-        p.fill(col[0], col[1], col[2], dot.opacity);
-        p.drawingContext.shadowBlur = 8;
-        p.drawingContext.shadowColor = `rgba(${col[0]},${col[1]},${col[2]},1)`;
-        p.circle(dot.x, axisY + dot.yOffset, 3);
-        p.drawingContext.shadowBlur = 0;
-      }
-    }
-  }
-
-  function drawWavePacket(wp, axisY) {
-    let ptsDensity = [];
-    let drawScale = 50; 
-
-    for (let px = wp.cx - wp.sigma*3; px <= wp.cx + wp.sigma*3; px += 2) {
+    for (let px = wp.cx - wp.sigma*3; px <= wp.cx + wp.sigma*3; px += 1.5) {
       let dx = px - wp.cx;
       let gaussian = Math.exp(-(dx * dx) / (2 * wp.sigma * wp.sigma));
-      let amplitude = wp.amp * gaussian;
-      let density = (amplitude * amplitude);
-      ptsDensity.push({ x: px, y: axisY - density * drawScale });
+      // Just drawing the probability density envelope for visual clarity
+      let density = wp.amp * wp.amp * gaussian * gaussian; 
+      pts.push({ x: px, y: axisY - density * drawScale });
     }
 
-    let [cr, cg, cb] = wp.col;
+    let c = wp.col;
 
-    // Glowing Probability Density
+    // Fill
     p.noStroke();
-    let fillGrad = p.drawingContext.createLinearGradient(0, axisY - drawScale, 0, axisY);
-    fillGrad.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, 0.5)`);
-    fillGrad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0.0)`);
-    p.drawingContext.fillStyle = fillGrad;
-    
+    p.fill(p.red(c), p.green(c), p.blue(c), 40);
     p.beginShape();
-    p.vertex(ptsDensity[0].x, axisY);
-    for (let pt of ptsDensity) p.vertex(pt.x, pt.y);
-    p.vertex(ptsDensity[ptsDensity.length-1].x, axisY);
+    p.vertex(pts[0].x, axisY);
+    for (let pt of pts) p.vertex(pt.x, pt.y);
+    p.vertex(pts[pts.length-1].x, axisY);
     p.endShape();
     
-    // Wave outline
-    p.stroke(cr, cg, cb, 255);
-    p.strokeWeight(2);
-    p.drawingContext.shadowBlur = 10;
-    p.drawingContext.shadowColor = `rgba(${cr}, ${cg}, ${cb}, 0.8)`;
+    // Line
+    p.stroke(c);
+    p.strokeWeight(2.5 / camScale);
     p.noFill();
     p.beginShape();
-    for (let pt of ptsDensity) p.vertex(pt.x, pt.y);
+    for (let pt of pts) p.vertex(pt.x, pt.y);
+    p.endShape();
+  }
+
+  function drawEvanescentSeep(axisY, bx1, bx2) {
+    // This function creates the localized animation inside the barrier during the pause
+    let progress = p.map(animTimer, 0, 90, 0, 1, true); 
+    if (phase === 2) progress = 0.1; // Just starting to seep in phase 2
+
+    let currentSeepX = bx1 + (bx2 - bx1) * progress;
+
+    p.noFill();
+    p.stroke(184, 107, 252, 200); // Purple interaction color
+    p.strokeWeight(2 / camScale);
+    
+    // Glow effect
+    p.drawingContext.shadowBlur = 10 * camScale;
+    p.drawingContext.shadowColor = 'rgba(184, 107, 252, 1)';
+    
+    p.beginShape();
+    for (let px = bx1; px <= currentSeepX; px += 1) {
+        let x = px - bx1;
+        let val = 0;
+        
+        // Fast oscillation to represent high energy frequency interaction
+        let freq = p.frameCount * 0.3;
+        
+        if (E < V0) {
+            // Exponential decay
+            let kappa = Math.sqrt(V0 - E) * 0.12;
+            val = Math.exp(-kappa * x) * Math.cos(freq - x*0.2);
+        } else {
+            // Oscillating through
+            let k2 = Math.sqrt(E - V0) * 0.1;
+            val = Math.cos(k2 * x - freq);
+        }
+        
+        // Match the transmitted amplitude envelope at the right edge visually
+        let envelope = p.map(px, bx1, bx2, 1.0, Math.sqrt(T));
+        
+        // Fade in the leading edge of the seep
+        let edgeFade = p.map(px, currentSeepX - 10, currentSeepX, 1, 0, true);
+        
+        p.vertex(px, axisY - (Math.abs(val) * envelope * 55 * edgeFade));
+    }
     p.endShape();
     p.drawingContext.shadowBlur = 0; // reset
   }
 
-  function drawInternalWave(axisY, bx1, bx2, incidentCx) {
-     let dist = Math.abs(incidentCx - bx1);
-     let alphaSq = p.map(dist, 0, 100, 255, 0, true);
-     if(alphaSq <= 0) return;
+  function drawClassicalParticle(axisY) {
+    if (!classicalParticle) return;
+    let cp = classicalParticle;
+    let by = axisY - cp.r;
 
-     p.noFill();
-     p.stroke(0, 255, 136, alphaSq * 0.7);
-     p.strokeWeight(2);
-     p.drawingContext.shadowBlur = 10;
-     p.drawingContext.shadowColor = 'rgba(0, 255, 136, 0.5)';
-     
-     p.beginShape();
-     for(let px = bx1; px <= bx2; px += 2) {
-         let x = px - bx1;
-         let val = 0;
-         if (E < V0) {
-            let kappa = Math.sqrt(V0 - E) * 0.1;
-            val = Math.exp(-kappa * x) * Math.cos(p.frameCount * 0.15);
-         } else {
-            let k2 = Math.sqrt(E - V0) * 0.08;
-            val = Math.cos(k2 * x - p.frameCount * 0.15);
-         }
-         let envelope = p.map(px, bx1, bx2, 1.0, Math.sqrt(T));
-         p.vertex(px, axisY - (Math.abs(val) * envelope * 50));
-     }
-     p.endShape();
-     p.drawingContext.shadowBlur = 0;
+    p.push();
+    p.translate(cp.x, by);
+    
+    // Scale for squish effect on reflection
+    if (cp.squish !== 1.0) {
+        // Squish origin is at the right edge (hitting the wall)
+        p.translate(cp.r, 0);
+        p.scale(cp.squish, 2 - cp.squish); // Conservation of area
+        p.translate(-cp.r, 0);
+    }
+
+    let cColor = E >= V0 ? p.color(59, 242, 129) : p.color(242, 138, 59);
+    
+    p.noStroke();
+    p.fill(p.red(cColor), p.green(cColor), p.blue(cColor), 60);
+    p.circle(0, 0, cp.r * 2.8);
+    
+    p.fill(cColor);
+    p.circle(0, 0, cp.r * 2);
+    
+    p.fill(255, 255, 255, 180);
+    p.circle(-cp.r*0.3, -cp.r*0.3, cp.r*0.5);
+    
+    p.pop();
   }
 
-  function drawClassicalScene(axisY, bx1, bx2) {
-    if (!fired) return;
-
-    let ballR = 14;
-    let startX = W * 0.15;
-    let canPass = E >= V0;
-    
-    // Physical classical velocities
-    let v_incident = 3.0 * Math.sqrt(E);
-    let v_barrier = canPass ? 3.0 * Math.sqrt(E - V0) : 0; 
-
-    // Update position based on frame delta
-    if (!window.cbx) { window.cbx = startX; window.cState = 'incoming'; }
-    
-    if (window.cState === 'incoming') {
-        window.cbx += v_incident;
-        if (window.cbx > bx1 - ballR) {
-            if (canPass) window.cState = 'over';
-            else window.cState = 'reflecting';
-        }
-    } else if (window.cState === 'over') {
-        window.cbx += Math.max(0.5, v_barrier); // Don't let it completely stop visually
-        if (window.cbx > bx2 + ballR) window.cState = 'outgoing';
-    } else if (window.cState === 'outgoing') {
-        window.cbx += v_incident; // Speeds back up!
-    } else if (window.cState === 'reflecting') {
-        window.cbx -= v_incident;
-    }
-
-    let by = axisY - ballR;
-    
-    // Reset condition
-    if (window.cbx > W + ballR || window.cbx < -ballR) { 
-        fired = false; 
-        window.cbx = null;
-        document.getElementById('btnFire').disabled = false;
-        document.getElementById('btnFire').style.opacity = 1;
-        return;
-    }
-
-    // Render Ball
-    let ballColor = canPass ? p.color(0, 255, 136) : p.color(255, 115, 0);
-    p.push();
-    p.translate(window.cbx, by);
-    
-    // Motion trail / glow
-    p.drawingContext.shadowBlur = 20;
-    p.drawingContext.shadowColor = ballColor.toString();
+  function drawPhaseIndicator() {
+    p.fill(255);
     p.noStroke();
-    
-    // Core
-    p.fill(ballColor);
-    p.circle(0, 0, ballR * 2);
-    
-    // Highlight
-    p.fill(255, 255, 255, 200);
-    p.drawingContext.shadowBlur = 0;
-    p.circle(-ballR*0.3, -ballR*0.3, ballR*0.6);
-    p.pop();
-
-    // Text Indicator
-    p.fill(255, 255, 255, 200);
-    p.noStroke();
-    p.textSize(14);
+    p.textSize(12);
     p.textAlign(p.CENTER);
-    let msgY = axisY - p.map(V0, 0.3, 2.0, 20, 110) - 40;
     
-    if (canPass && window.cState === 'over') {
-      p.text('Kinetic Energy Reduced (Slower)', W * 0.5, msgY);
-    } else if (!canPass && window.cState === 'reflecting') {
-      p.text('Hard Reflection', W * 0.5, msgY);
+    let textStr = "";
+    if (phase === 1) textStr = "Tracking Incident Packet...";
+    else if (phase === 2) textStr = "Approaching Barrier Boundary...";
+    else if (phase === 3) {
+        if (simMode === 'quantum') textStr = "Wave Function Penetrating & Splitting...";
+        else textStr = E >= V0 ? "Surmounting Potential Barrier..." : "Reflecting from Barrier...";
     }
+    else if (phase === 4 || phase === 5) textStr = "Macro View Restored";
+
+    p.text(textStr, W/2, 30);
   }
 
 }, document.getElementById('qt-canvas'));
