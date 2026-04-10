@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Core Stable</title>
+<title>Cinematic Quantum Tunneling - Morphing Wave</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -71,7 +71,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.08 15:00 PDT</div>
+      <div class="version-tag">v2026.04.10 10:55 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -143,7 +143,7 @@
 window.onload = function() {
     let loader = document.getElementById('loading-msg');
     if (typeof p5 === 'undefined') {
-        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. <br><br>Please check your internet connection or temporarily disable strict AdBlockers/Privacy extensions that might block CDN scripts.</span>";
+        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. <br><br>Please check your internet connection.</span>";
     } else {
         if(loader) loader.style.display = 'none';
     }
@@ -174,7 +174,6 @@ new p5(function(p) {
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
   let waves = [];
-  let flowParticles = [];
   let sparks = []; 
   let classicalParticle = null;
 
@@ -200,7 +199,7 @@ new p5(function(p) {
   }
 
   function doReset() {
-    waves = []; flowParticles = []; sparks = []; classicalParticle = null;
+    waves = []; sparks = []; classicalParticle = null;
     phase = 0; animTimer = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
@@ -286,10 +285,10 @@ new p5(function(p) {
 
   p.draw = function() {
     try {
-        p.background(10, 15, 22); // Slightly lighter to ensure canvas is visible
+        p.background(10, 15, 22); 
         
         let axisY = H * AXIS_Y_FRAC;
-        let bwPx = 20 + ((barrierW - 0.1) / 2.9) * 130; // Pure math fallback
+        let bwPx = 20 + ((barrierW - 0.1) / 2.9) * 130; 
         let bx1 = W * 0.5 - bwPx / 2;
         let bx2 = W * 0.5 + bwPx / 2;
         let bMid = (bx1 + bx2) / 2;
@@ -308,23 +307,22 @@ new p5(function(p) {
             } 
             else if (phase === 2 && mainWave) { 
                 mainWave.cx += baseSpeed * 0.1; 
-                targetCamScale = 2.4;
+                targetCamScale = 1.9; // Adjusted so whole barrier is visible
                 targetCamX = W * 0.5 - bMid * targetCamScale;
                 targetCamY = H * 0.5 - axisY * targetCamScale + 80;
                 animTimer++;
-                if (animTimer > 30) { phase = 3; animTimer = 0; flowParticles = []; }
+                if (animTimer > 30) { phase = 3; animTimer = 0; }
             }
             else if (phase === 3 && mainWave) { 
-                mainWave.cx += baseSpeed * 0.02; 
+                // The wave slows down as it interacts
+                mainWave.cx += baseSpeed * 0.01; 
                 animTimer++;
-                if (animTimer % 2 === 0 && animTimer < 110) spawnFlowParticle(bx1, bx2, mainWave.sigma);
-                updateFlowParticles(baseSpeed * 0.5, bx1);
 
                 if (animTimer > 150) { 
                     waves.push(buildWave(bx2, Math.sqrt(Math.max(0, T)), mainWave.sigma, mainWave.k0, 'transmitted'));
                     waves.push(buildWave(bx1, Math.sqrt(Math.max(0, R)), mainWave.sigma, -mainWave.k0, 'reflected'));
                     mainWave.dead = true;
-                    phase = 4; animTimer = 0; flowParticles = [];
+                    phase = 4; animTimer = 0;
                 }
             }
             else if (phase === 4) { 
@@ -361,7 +359,7 @@ new p5(function(p) {
                 }
                 else if (phase === 2) { 
                     cp.x += cp.v * 0.2; 
-                    targetCamScale = 2.4;
+                    targetCamScale = 1.9;
                     targetCamX = W * 0.5 - bMid * targetCamScale;
                     targetCamY = H * 0.5 - axisY * targetCamScale + 80;
                     if (cp.x >= bx1 - cp.r) {
@@ -375,7 +373,6 @@ new p5(function(p) {
                 else if (phase === 3) { 
                     animTimer++;
                     if (!canPass) {
-                        // Avoid p5 map for absolute safety
                         cp.squish = 1.0 - ((Math.sin(animTimer * 0.1) + 1) / 2) * 0.5;
                     } else {
                         cp.x += 0.5; 
@@ -403,10 +400,9 @@ new p5(function(p) {
         }
 
         // --- MATH SAFE LERP ---
-        // Replacing p5 lerp with native math to guarantee NaN safety
         camScale += (targetCamScale - camScale) * 0.08;
         if (isNaN(camScale)) camScale = 1.0; 
-        camScale = Math.max(0.1, Math.min(camScale, 4.0)); // Strict clamping
+        camScale = Math.max(0.1, Math.min(camScale, 4.0)); 
         
         camX += (targetCamX - camX) * 0.08;
         if (isNaN(camX)) camX = 0;
@@ -422,7 +418,7 @@ new p5(function(p) {
         drawEnvironment(axisY, bx1, bx2);
 
         if (simMode === 'quantum') {
-            if (phase === 3) drawProbabilityFlow(axisY, bx1, bx2);
+            if (phase === 3) drawMorphingWave(axisY, bx1, bx2);
             for (let w of waves) { if (!w.dead) drawWaveEnvelope(w, axisY); }
         } else {
             drawClassicalParticle(axisY);
@@ -445,85 +441,60 @@ new p5(function(p) {
     }
   };
 
-  function spawnFlowParticle(bx1, bx2, sigma) {
-      let isTransmitting = p.random(1) < T;
-      let depth = bx2; 
-      if (!isTransmitting) {
-          if (E < V0) {
-              let kappa = Math.sqrt(Math.max(0.0001, V0 - E));
-              let u = Math.max(0.01, p.random(1)); 
-              let penetration = -Math.log(u) / (2 * kappa * 0.5); 
-              depth = bx1 + Math.min(penetration, bx2 - bx1 - 2); 
-          } else {
-              depth = bx1 + p.random((bx2 - bx1) * 0.8);
-          }
-      }
-      flowParticles.push({
-          x: bx1,
-          y: p.random(-sigma * 0.4, sigma * 0.4),
-          dest: isTransmitting ? 'trans' : 'refl',
-          maxDepth: depth,
-          vx: E < V0 ? 2.0 : 3.0,
-          dir: 1, 
-          history: [] 
-      });
-  }
+  function drawMorphingWave(axisY, bx1, bx2) {
+      // Progress from 0.0 to 1.0 during phase 3
+      let progress = Math.min(1.0, animTimer / 150);
+      
+      // Calculate Wave Numbers (Momentum/Wavelength)
+      let k_incident = Math.sqrt(E) * 0.15;
+      let k_final = Math.sqrt(Math.max(0.0001, Math.abs(E - V0))) * 0.15;
 
-  function updateFlowParticles(baseSpeed, bx1) {
-      for (let i = flowParticles.length - 1; i >= 0; i--) {
-          let fp = flowParticles[i];
-          fp.history.push({x: fp.x, y: fp.y});
-          if (fp.history.length > 10) fp.history.shift();
+      // Smoothly alter the wavelength as it pushes through the barrier
+      let current_k = k_incident + (k_final - k_incident) * progress;
 
-          fp.x += fp.vx * fp.dir;
-          if (fp.dir === 1) { 
-              if (E < V0) fp.vx = Math.max(0.5, fp.vx * 0.95); 
-              if (fp.x >= fp.maxDepth) {
-                  if (fp.dest === 'refl') { fp.dir = -1; fp.vx = 0.5; }
-              }
-          } else { 
-              fp.vx = Math.min(fp.vx * 1.1, baseSpeed); 
-              if (fp.x < bx1 - 20) { flowParticles.splice(i, 1); }
-          }
-      }
-  }
+      // Calculate exponential decay (if tunneling)
+      let final_decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.05 : 0;
+      let current_decay = final_decay * progress;
 
-  function drawProbabilityFlow(axisY, bx1, bx2) {
-      p.noFill(); p.stroke(196, 122, 255, 60); p.strokeWeight(1 / camScale);
+      let ec = E >= V0 ? COL_TRANS : COL_REFL;
+
+      p.noFill();
+      p.stroke(ec[0], ec[1], ec[2], 255);
+      p.strokeWeight(3 / camScale);
+
+      // Draw the morphing, penetrating wave pattern
       p.beginShape();
-      for (let px = bx1; px <= bx2; px += 2) {
-         let x = px - bx1;
-         let val = E < V0 ? Math.exp(-Math.sqrt(Math.max(0.0001, V0 - E)) * 0.1 * x) : 1.0;
-         
-         // Safe mapping
-         let pct = (px - bx1) / (bx2 - bx1);
-         let envelope = 1.0 + pct * (Math.sqrt(Math.max(0, T)) - 1.0);
-         
-         p.vertex(px, axisY - (val * envelope * 55));
+      let endX = bx1 + (bx2 - bx1) * progress;
+      for (let px = bx1; px <= endX; px += 2) {
+          let x = px - bx1;
+          
+          // The oscillating wave pattern
+          let phase = current_k * x - (p.frameCount * 0.15); 
+          let amplitude = Math.cos(phase);
+          
+          // Apply exponential tunneling decay envelope
+          let envelope = Math.exp(-current_decay * x);
+          
+          p.vertex(px, axisY - (amplitude * envelope * 45));
       }
       p.endShape();
 
-      p.strokeWeight(2.5 / camScale);
-      for (let fp of flowParticles) {
-          let c = fp.dest === 'trans' ? COL_TRANS : COL_REFL;
-          if (fp.history.length > 1) {
-              for (let j = 0; j < fp.history.length - 1; j++) {
-                  let h1 = fp.history[j], h2 = fp.history[j+1];
-                  let alpha = (j / (fp.history.length - 1)) * 255;
-                  p.stroke(c[0], c[1], c[2], alpha);
-                  p.line(h1.x, axisY - Math.abs(h1.y), h2.x, axisY - Math.abs(h2.y));
-              }
-          }
-          p.noStroke();
-          p.fill(c[0], c[1], c[2], 50); 
-          p.circle(fp.x, axisY - Math.abs(fp.y), 10 / camScale);
-          p.fill(c[0], c[1], c[2], 255); 
-          p.circle(fp.x, axisY - Math.abs(fp.y), 3 / camScale);
+      // Draw a faint probability density envelope behind the wave pattern
+      p.noStroke();
+      p.fill(ec[0], ec[1], ec[2], 30);
+      p.beginShape();
+      p.vertex(bx1, axisY);
+      for (let px = bx1; px <= endX; px += 2) {
+          let x = px - bx1;
+          let envelope = Math.exp(-current_decay * x * 2); // Density decays twice as fast
+          p.vertex(px, axisY - (envelope * 45));
       }
+      p.vertex(endX, axisY);
+      p.endShape();
   }
 
   function drawEnvironment(axisY, bx1, bx2) {
-    let potH = 20 + ((V0 - 0.3) / 1.7) * 90; // Direct math
+    let potH = 20 + ((V0 - 0.3) / 1.7) * 90; 
     
     p.stroke(25, 35, 50); p.strokeWeight(1 / camScale);
     for (let x = -W; x < W*2; x += 40) p.line(x, -H, x, H*2);
@@ -549,7 +520,6 @@ new p5(function(p) {
     let pts = []; let drawScale = 55; 
     for (let px = wp.cx - wp.sigma*3; px <= wp.cx + wp.sigma*3; px += 1.5) {
       let dx = px - wp.cx;
-      // Protected division
       let sigSq = Math.max(0.001, wp.sigma * wp.sigma);
       let gaussian = Math.exp(-(dx * dx) / (2 * sigSq));
       pts.push({ x: px, y: axisY - (wp.amp * wp.amp * gaussian * gaussian * drawScale) });
@@ -598,7 +568,7 @@ new p5(function(p) {
     p.fill(255); p.noStroke(); p.textSize(12); p.textAlign(p.CENTER);
     let textStr = phase === 1 ? "Tracking Incident Packet..." : 
                   phase === 2 ? "Approaching Barrier Boundary..." : 
-                  phase === 3 ? (simMode === 'quantum' ? "Probability Current: Particles Penetrating & Turning Back" : (E >= V0 ? "Surmounting Potential Barrier (Slowing Down)" : "Kinetic Impact & Hard Reflection")) : 
+                  phase === 3 ? (simMode === 'quantum' ? "Wave Pattern Altering & Penetrating Barrier..." : (E >= V0 ? "Surmounting Potential Barrier (Slowing Down)" : "Kinetic Impact & Hard Reflection")) : 
                   "Macro View Restored";
     p.text(textStr, W/2, 30);
   }
