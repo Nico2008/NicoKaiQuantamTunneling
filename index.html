@@ -92,7 +92,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.10 11:55 PDT</div>
+      <div class="version-tag">v2026.04.10 11:58 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -228,7 +228,6 @@ new p5(function(p) {
   let camX = 0, camY = 0, camScale = 1.0;
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
-  let waves = [];
   let sparks = []; 
   let classicalParticle = null;
 
@@ -256,7 +255,7 @@ new p5(function(p) {
     timelineProgress = 0; simTime = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
-    waves = []; sparks = []; classicalParticle = null;
+    sparks = []; classicalParticle = null;
     
     let btnF = document.getElementById('btnFire');
     if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
@@ -268,11 +267,6 @@ new p5(function(p) {
     if (btnO) btnO.textContent = "Observe";
   }
   window.doReset = doReset;
-
-  function buildWave(cx, amp, sigma, k0, type) {
-    let col = type === 'transmitted' ? COL_TRANS : type === 'reflected' ? COL_REFL : COL_INC;
-    return { cx, amp, sigma, k0, col, type, dead: false };
-  }
 
   p.setup = function() {
     try {
@@ -287,9 +281,7 @@ new p5(function(p) {
           if (!isRunning) { 
             isRunning = true;
             let startX = -W * 0.2; 
-            let k0 = Math.sqrt(E) * 3.0;
-            if (simMode === 'quantum') waves = [buildWave(startX, 1.0, spread * 40, k0, 'incident')];
-            else classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
+            if (simMode === 'classical') classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
             
             document.getElementById('btnFire').disabled = true;
             document.getElementById('btnFire').style.opacity = 0.5;
@@ -318,7 +310,6 @@ new p5(function(p) {
 
         document.getElementById('btnReset').onclick = doReset;
         
-        // Connect Visual Toggles
         document.getElementById('cbReal').onchange = (e) => showReal = e.target.checked;
         document.getElementById('cbProb').onchange = (e) => showProb = e.target.checked;
 
@@ -366,9 +357,8 @@ new p5(function(p) {
 
         // --- GLOBAL TIMELINE UPDATE ---
         if (isRunning && !isPaused) {
-            let speed = (0.0015 + Math.sqrt(E) * 0.002) * simSpeed;
-            if (timelineProgress > 0.35 && timelineProgress < 0.65) speed *= 0.2; 
-            
+            // FIXED: Removed artificial slow down so wave propagates smoothly
+            let speed = (0.001 + Math.sqrt(E) * 0.0015) * simSpeed;
             timelineProgress += speed;
             simTime += 1.0 * simSpeed; 
 
@@ -418,7 +408,7 @@ new p5(function(p) {
     }
   };
 
-  // --- THE UNIFIED WAVE ENGINE WITH FIXED BOUNDS ---
+  // --- THE UNIFIED WAVE ENGINE ---
   function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
       let totalDist = W * 1.4;
       let startX = -W * 0.2;
@@ -435,7 +425,6 @@ new p5(function(p) {
       let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
       let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
 
-      // FIXED: Draw from extremely far left to extremely far right to prevent ANY clipping
       let minDraw = -W;
       let maxDraw = W * 2.5;
 
@@ -569,15 +558,23 @@ new p5(function(p) {
           p.endShape();
       }
 
-      // 3. Draw Collapsed Particle if observed
+      // Draw the Green Line Label when Transmitted Wave is visible
+      if (timelineProgress > 0.5 && T > 0.01 && alphaMult === 1.0) {
+          p.fill(46, 255, 132, 220); p.noStroke(); p.textAlign(p.LEFT); p.textSize(12 / camScale);
+          p.text("Transmitted Wave Function (Tunneled)", bx2 + 20, axisY - 60 / camScale);
+      }
+
+      // 3. Draw Collapsed Particle (Speck)
       if (collapsedParticle !== null) {
           p.noStroke();
-          p.fill(255, 255, 255, 50); p.circle(collapsedParticle, axisY, 25 / camScale);
-          p.fill(255, 255, 255, 100); p.circle(collapsedParticle, axisY, 12 / camScale);
-          p.fill(255, 255, 255, 255); p.circle(collapsedParticle, axisY, 4 / camScale);
+          p.fill(255, 255, 200, 200); p.circle(collapsedParticle, axisY, 8 / camScale); // Outer bright
+          p.fill(255, 255, 255, 255); p.circle(collapsedParticle, axisY, 3 / camScale); // Sharp inner speck
           
-          p.fill(255); p.textSize(10 / camScale); p.textAlign(p.CENTER);
-          p.text("Observed Particle", collapsedParticle, axisY - 25 / camScale);
+          p.stroke(255, 255, 255, 100); p.strokeWeight(1/camScale); p.noFill();
+          p.circle(collapsedParticle, axisY, 16 / camScale); // Reticle
+          
+          p.fill(255); p.noStroke(); p.textSize(11 / camScale); p.textAlign(p.CENTER);
+          p.text("Collapsed to Speck", collapsedParticle, axisY - 20 / camScale);
       }
   }
 
