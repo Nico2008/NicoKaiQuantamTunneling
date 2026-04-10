@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Morphing Wave</title>
+<title>Cinematic Quantum Tunneling - Superposition & Disruption</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -71,7 +71,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.10 10:55 PDT</div>
+      <div class="version-tag">v2026.04.10 11:06 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -139,11 +139,10 @@
 </div>
 
 <script>
-// Check if the script library was blocked by the browser
 window.onload = function() {
     let loader = document.getElementById('loading-msg');
     if (typeof p5 === 'undefined') {
-        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. <br><br>Please check your internet connection.</span>";
+        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. Check internet connection.</span>";
     } else {
         if(loader) loader.style.display = 'none';
     }
@@ -154,9 +153,7 @@ function setMode(m) {
   simMode = m;
   document.getElementById('tabQuantum').className = 'tab-btn' + (m==='quantum'?' active':'');
   document.getElementById('tabClassical').className = 'tab-btn' + (m==='classical'?' active':'');
-  if (typeof window.doReset === 'function') {
-      window.doReset();
-  }
+  if (typeof window.doReset === 'function') window.doReset();
 }
 
 new p5(function(p) {
@@ -169,7 +166,6 @@ new p5(function(p) {
   let phase = 0; 
   let animTimer = 0;
   
-  // Enforced numeric defaults to prevent NaN Matrix crashes
   let camX = 0, camY = 0, camScale = 1.0;
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
@@ -177,10 +173,11 @@ new p5(function(p) {
   let sparks = []; 
   let classicalParticle = null;
 
-  // Pure arrays to avoid creating 1000s of p5.color objects per second
+  // Pure arrays for memory safety
   const COL_TRANS = [46, 255, 132];
   const COL_REFL  = [255, 132, 46];
   const COL_INC   = [46, 182, 255];
+  const COL_SUPER = [196, 122, 255]; // Purple for superposition disruption
 
   function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
@@ -303,22 +300,22 @@ new p5(function(p) {
                 targetCamScale = 1.3;
                 targetCamX = W * 0.4 - mainWave.cx * targetCamScale;
                 targetCamY = H * 0.5 - axisY * targetCamScale + 50;
-                if (mainWave.cx >= bx1 - mainWave.sigma * 1.5) { phase = 2; animTimer = 0; }
+                // Transition right before it touches the wall
+                if (mainWave.cx >= bx1 - mainWave.sigma * 2.0) { phase = 2; animTimer = 0; }
             } 
             else if (phase === 2 && mainWave) { 
-                mainWave.cx += baseSpeed * 0.1; 
-                targetCamScale = 1.9; // Adjusted so whole barrier is visible
+                mainWave.cx += baseSpeed * 0.1; // extreme slow motion
+                targetCamScale = 1.9; // Wide enough to see the interference left and emergence right
                 targetCamX = W * 0.5 - bMid * targetCamScale;
                 targetCamY = H * 0.5 - axisY * targetCamScale + 80;
                 animTimer++;
-                if (animTimer > 30) { phase = 3; animTimer = 0; }
+                // Enter Disruption Phase
+                if (animTimer > 40) { phase = 3; animTimer = 0; }
             }
             else if (phase === 3 && mainWave) { 
-                // The wave slows down as it interacts
-                mainWave.cx += baseSpeed * 0.01; 
                 animTimer++;
-
-                if (animTimer > 150) { 
+                // We hold phase 3 for 250 frames to watch the superposition push left and tunnel right
+                if (animTimer > 250) { 
                     waves.push(buildWave(bx2, Math.sqrt(Math.max(0, T)), mainWave.sigma, mainWave.k0, 'transmitted'));
                     waves.push(buildWave(bx1, Math.sqrt(Math.max(0, R)), mainWave.sigma, -mainWave.k0, 'reflected'));
                     mainWave.dead = true;
@@ -346,6 +343,7 @@ new p5(function(p) {
             }
         } 
         else {
+            // Classical stays the same
             if (classicalParticle) {
                 let cp = classicalParticle;
                 let canPass = E >= V0;
@@ -418,8 +416,12 @@ new p5(function(p) {
         drawEnvironment(axisY, bx1, bx2);
 
         if (simMode === 'quantum') {
-            if (phase === 3) drawMorphingWave(axisY, bx1, bx2);
-            for (let w of waves) { if (!w.dead) drawWaveEnvelope(w, axisY); }
+            if (phase === 3) {
+                let mw = waves.find(w => w.type === 'incident');
+                if (mw) drawSuperpositionAndTunneling(axisY, bx1, bx2, mw);
+            } else {
+                for (let w of waves) { if (!w.dead) drawWaveEnvelope(w, axisY); }
+            }
         } else {
             drawClassicalParticle(axisY);
             updateAndDrawSparks();
@@ -434,63 +436,120 @@ new p5(function(p) {
         p.resetMatrix();
         p.background(100, 0, 0);
         p.fill(255); p.noStroke(); p.textSize(14); p.textAlign(p.LEFT);
-        p.text("Crash Prevented. Please send this error to the dev:", 20, 30);
+        p.text("Crash Prevented. Error in render loop:", 20, 30);
         p.text(err.message, 20, 60);
-        if (err.stack) p.text(err.stack.substring(0, 100), 20, 90);
         p.noLoop(); 
     }
   };
 
-  function drawMorphingWave(axisY, bx1, bx2) {
-      // Progress from 0.0 to 1.0 during phase 3
-      let progress = Math.min(1.0, animTimer / 150);
+  // --- THE NEW SUPERPOSITION / DISRUPTION RENDERER ---
+  function drawSuperpositionAndTunneling(axisY, bx1, bx2, mainWave) {
+      // t goes from 0.0 to 1.0 during the interaction
+      let t = Math.min(1.0, animTimer / 250.0);
       
-      // Calculate Wave Numbers (Momentum/Wavelength)
-      let k_incident = Math.sqrt(E) * 0.15;
-      let k_final = Math.sqrt(Math.max(0.0001, Math.abs(E - V0))) * 0.15;
+      let k = Math.sqrt(E) * 0.15;
+      let phase_time = p.frameCount * 0.15;
+      
+      // Calculate how far the packets travel during interaction
+      let travelDist = mainWave.sigma * 4; 
+      
+      // The incident wave keeps moving right
+      let cx_in = bx1 - mainWave.sigma + (travelDist * t);
+      
+      // The reflected wave originates from the wall and moves left
+      // It starts deep right and travels left, only visibly emerging as t increases
+      let cx_ref = bx1 + mainWave.sigma - (travelDist * t);
+      
+      // The transmitted wave originates from the right wall and moves right
+      let cx_tr = bx2 - mainWave.sigma + (travelDist * Math.max(0, t - 0.2)); 
 
-      // Smoothly alter the wavelength as it pushes through the barrier
-      let current_k = k_incident + (k_final - k_incident) * progress;
+      let amp_ref = Math.sqrt(Math.max(0, R));
+      let amp_tr = Math.sqrt(Math.max(0, T));
+      let decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.08 : 0;
+      let k_barrier = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.15 : 0;
 
-      // Calculate exponential decay (if tunneling)
-      let final_decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.05 : 0;
-      let current_decay = final_decay * progress;
-
-      let ec = E >= V0 ? COL_TRANS : COL_REFL;
-
-      p.noFill();
-      p.stroke(ec[0], ec[1], ec[2], 255);
-      p.strokeWeight(3 / camScale);
-
-      // Draw the morphing, penetrating wave pattern
-      p.beginShape();
-      let endX = bx1 + (bx2 - bx1) * progress;
-      for (let px = bx1; px <= endX; px += 2) {
-          let x = px - bx1;
-          
-          // The oscillating wave pattern
-          let phase = current_k * x - (p.frameCount * 0.15); 
-          let amplitude = Math.cos(phase);
-          
-          // Apply exponential tunneling decay envelope
-          let envelope = Math.exp(-current_decay * x);
-          
-          p.vertex(px, axisY - (amplitude * envelope * 45));
-      }
-      p.endShape();
-
-      // Draw a faint probability density envelope behind the wave pattern
+      // Draw the Probability Density (The Fill)
       p.noStroke();
-      p.fill(ec[0], ec[1], ec[2], 30);
       p.beginShape();
-      p.vertex(bx1, axisY);
-      for (let px = bx1; px <= endX; px += 2) {
-          let x = px - bx1;
-          let envelope = Math.exp(-current_decay * x * 2); // Density decays twice as fast
-          p.vertex(px, axisY - (envelope * 45));
+      p.vertex(bx1 - mainWave.sigma * 4, axisY);
+      for (let px = bx1 - mainWave.sigma * 4; px <= bx2 + mainWave.sigma * 4; px += 2.5) {
+          let val = calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, amp_ref, amp_tr, decay, k_barrier, t, mainWave.sigma);
+          
+          // Determine color blending based on region
+          let c = COL_INC;
+          if (px > bx2) c = COL_TRANS;
+          else if (px > bx1 && px <= bx2) c = E < V0 ? COL_SUPER : COL_TRANS;
+          else if (t > 0.3) c = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), t); // Morph to purple on left
+          
+          p.fill(c.levels ? c.levels[0] : c[0], c.levels ? c.levels[1] : c[1], c.levels ? c.levels[2] : c[2], 40);
+          p.vertex(px, axisY - (val * val * 55)); // Probability density is amplitude squared
       }
-      p.vertex(endX, axisY);
+      p.vertex(bx2 + mainWave.sigma * 4, axisY);
       p.endShape();
+
+      // Draw the Real Wave Function (The Line)
+      p.noFill();
+      p.strokeWeight(2.5 / camScale);
+      p.beginShape();
+      for (let px = bx1 - mainWave.sigma * 4; px <= bx2 + mainWave.sigma * 4; px += 2) {
+          let val = calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, amp_ref, amp_tr, decay, k_barrier, t, mainWave.sigma);
+          
+          let c = COL_INC;
+          if (px > bx2) c = COL_TRANS;
+          else if (px > bx1 && px <= bx2) c = E < V0 ? COL_SUPER : COL_TRANS;
+          else if (t > 0.3) c = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), t);
+          
+          p.stroke(c.levels ? c.levels[0] : c[0], c.levels ? c.levels[1] : c[1], c.levels ? c.levels[2] : c[2], 255);
+          p.vertex(px, axisY - (val * 45));
+      }
+      p.endShape();
+  }
+
+  // Math helper for the complex superposition at any point x
+  function calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, amp_ref, amp_tr, decay, k_barrier, t, sigma) {
+      let sigSq = Math.max(0.001, sigma * sigma);
+      
+      if (px <= bx1) {
+          // Region 1: Superposition of Incident and Reflected (Creates the Disruption)
+          let env_in = Math.exp(-Math.pow(px - cx_in, 2) / (2 * sigSq));
+          let wave_in = env_in * Math.cos(k * (px - bx1) - phase_time);
+          
+          let env_ref = Math.exp(-Math.pow(px - cx_ref, 2) / (2 * sigSq));
+          // Reflected wave shifts phase and travels opposite direction
+          let wave_ref = amp_ref * env_ref * Math.cos(-k * (px - bx1) - phase_time);
+          
+          return wave_in + wave_ref;
+      } 
+      else if (px > bx1 && px <= bx2) {
+          // Region 2: Inside Barrier
+          let x_bar = px - bx1;
+          let penetration_progress = Math.min(1.0, t * 1.5);
+          
+          if (E < V0) {
+              // Tunneling: Exponential decay
+              let env = Math.exp(-decay * x_bar);
+              // Boundary match at x=0
+              let val = Math.cos(-phase_time) * env * penetration_progress;
+              // Smooth out the leading edge as it pushes through
+              let front = bx1 + (bx2 - bx1) * t * 1.2;
+              if (px > front) val *= Math.max(0, 1.0 - (px - front) / 10.0);
+              // Match right boundary amplitude
+              val *= p.map(px, bx1, bx2, 1.0, amp_tr, true);
+              return val;
+          } else {
+              // Above Barrier: Oscillating but different wavelength
+              let val = Math.cos(k_barrier * x_bar - phase_time) * penetration_progress;
+              val *= p.map(px, bx1, bx2, 1.0, amp_tr, true);
+              return val;
+          }
+      } 
+      else {
+          // Region 3: Transmitted Wave
+          let env_tr = Math.exp(-Math.pow(px - cx_tr, 2) / (2 * sigSq));
+          // Only start showing transmitted wave after it has had time to tunnel
+          let emerge_ramp = Math.max(0, Math.min(1.0, (t - 0.2) * 2.0));
+          return amp_tr * env_tr * emerge_ramp * Math.cos(k * (px - bx2) - phase_time);
+      }
   }
 
   function drawEnvironment(axisY, bx1, bx2) {
@@ -522,6 +581,7 @@ new p5(function(p) {
       let dx = px - wp.cx;
       let sigSq = Math.max(0.001, wp.sigma * wp.sigma);
       let gaussian = Math.exp(-(dx * dx) / (2 * sigSq));
+      // Just showing standard packet envelope for phase 1 & 4
       pts.push({ x: px, y: axisY - (wp.amp * wp.amp * gaussian * gaussian * drawScale) });
     }
     if (pts.length > 0) {
@@ -568,7 +628,7 @@ new p5(function(p) {
     p.fill(255); p.noStroke(); p.textSize(12); p.textAlign(p.CENTER);
     let textStr = phase === 1 ? "Tracking Incident Packet..." : 
                   phase === 2 ? "Approaching Barrier Boundary..." : 
-                  phase === 3 ? (simMode === 'quantum' ? "Wave Pattern Altering & Penetrating Barrier..." : (E >= V0 ? "Surmounting Potential Barrier (Slowing Down)" : "Kinetic Impact & Hard Reflection")) : 
+                  phase === 3 ? (simMode === 'quantum' ? "Superposition Disruption & Evanescent Penetration..." : (E >= V0 ? "Surmounting Potential Barrier (Slowing Down)" : "Kinetic Impact & Hard Reflection")) : 
                   "Macro View Restored";
     p.text(textStr, W/2, 30);
   }
