@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Smooth Superposition</title>
+<title>Cinematic Quantum Tunneling - Perfect Superposition</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -77,7 +77,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.10 11:20 PDT</div>
+      <div class="version-tag">v2026.04.10 11:35 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -170,29 +170,24 @@ new p5(function(p) {
   let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8;
   let T = 0, R = 1;
 
-  let phase = 0; 
-  let animTimer = 0;
-  let simTime = 0; // Global physics time (pausable)
+  // Deterministic Timeline Engine
+  let isRunning = false;
   let isPaused = false;
+  let timelineProgress = 0; // Goes from 0.0 to 1.0 representing the entire launch
+  let simTime = 0; // Drives wave oscillation independently of position
   
   let camX = 0, camY = 0, camScale = 1.0;
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
-  let waves = [];
-  let sparks = []; 
-  let classicalParticle = null;
-
   // Pure arrays for memory safety
-  const COL_TRANS = [46, 255, 132];
-  const COL_REFL  = [255, 132, 46];
-  const COL_INC   = [46, 182, 255];
-  const COL_SUPER = [196, 122, 255]; 
+  const COL_TRANS = [46, 255, 132]; // Green Exit Wave
+  const COL_REFL  = [255, 132, 46]; // Orange Reflected
+  const COL_INC   = [46, 182, 255]; // Blue Incident
+  const COL_SUPER = [196, 122, 255]; // Purple Interference
 
   function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
-    if (Math.abs(E_ - V0_) < 0.005) {
-      return 1 / (1 + (2 * 0.038 * V0_ * a * a)); 
-    }
+    if (Math.abs(E_ - V0_) < 0.005) { return 1 / (1 + (2 * 0.038 * V0_ * a * a)); }
     if (E_ > V0_) {
       let k1 = Math.sqrt(E_), k2 = Math.sqrt(Math.max(0.0001, E_ - V0_));
       let sinSq = Math.pow(Math.sin(k2 * a), 2);
@@ -205,24 +200,20 @@ new p5(function(p) {
   }
 
   function doReset() {
-    waves = []; sparks = []; classicalParticle = null;
-    phase = 0; animTimer = 0; simTime = 0;
+    isRunning = false;
+    isPaused = false;
+    timelineProgress = 0;
+    simTime = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
     
     let btnF = document.getElementById('btnFire');
     if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
     
-    isPaused = false;
     let btnP = document.getElementById('btnPause');
     if (btnP) { btnP.textContent = "Pause"; btnP.classList.remove('paused'); }
   }
   window.doReset = doReset;
-
-  function buildWave(cx, amp, sigma, k0, type) {
-    let col = type === 'transmitted' ? COL_TRANS : type === 'reflected' ? COL_REFL : COL_INC;
-    return { cx, amp, sigma, k0, col, type, dead: false };
-  }
 
   p.setup = function() {
     try {
@@ -234,15 +225,8 @@ new p5(function(p) {
         updateParams();
         
         document.getElementById('btnFire').onclick = () => { 
-          if (phase === 0) { 
-            phase = 1; 
-            let startX = -W * 0.2; 
-            let sigma = spread * 40;
-            let k0 = Math.sqrt(E) * 3.0; // Math.sign indicates direction
-            
-            if (simMode === 'quantum') waves = [buildWave(startX, 1.0, sigma, k0, 'incident')];
-            else classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
-            
+          if (!isRunning) { 
+            isRunning = true;
             document.getElementById('btnFire').disabled = true;
             document.getElementById('btnFire').style.opacity = 0.5;
             document.getElementById('btnFire').textContent = "In Motion...";
@@ -250,7 +234,7 @@ new p5(function(p) {
         };
         
         document.getElementById('btnPause').onclick = () => {
-            if (phase === 0) return; // Can't pause if not running
+            if (!isRunning) return;
             isPaused = !isPaused;
             let btnP = document.getElementById('btnPause');
             btnP.textContent = isPaused ? "Resume" : "Pause";
@@ -261,7 +245,7 @@ new p5(function(p) {
         document.getElementById('btnReset').onclick = doReset;
         
         ['energy','height','width','spread'].forEach(id => {
-          document.getElementById(id+'Slider').oninput = function() { updateParams(); if(phase === 0) doReset(); };
+          document.getElementById(id+'Slider').oninput = function() { updateParams(); if(!isRunning) doReset(); };
         });
     } catch (e) {
         let container = document.getElementById('qt-canvas');
@@ -302,126 +286,53 @@ new p5(function(p) {
         let bx1 = W * 0.5 - bwPx / 2;
         let bx2 = W * 0.5 + bwPx / 2;
         let bMid = (bx1 + bx2) / 2;
-        let baseSpeed = 3.0 + Math.sqrt(E) * 2.0;
+        let sigmaPx = spread * 40;
 
-        // --- PHYSICS UPDATE (Pausable) ---
-        if (!isPaused && phase !== 0) {
-            simTime++;
-
-            if (simMode === 'quantum') {
-                let mainWave = waves.find(w => w.type === 'incident');
-                
-                if (phase === 1 && mainWave) { 
-                    mainWave.cx += baseSpeed;
-                    targetCamScale = 1.3;
-                    targetCamX = W * 0.4 - mainWave.cx * targetCamScale;
-                    targetCamY = H * 0.5 - axisY * targetCamScale + 50;
-                    if (mainWave.cx >= bx1 - mainWave.sigma * 2.0) { phase = 2; animTimer = 0; }
-                } 
-                else if (phase === 2 && mainWave) { 
-                    mainWave.cx += baseSpeed * 0.1; 
-                    targetCamScale = 1.9; 
-                    targetCamX = W * 0.5 - bMid * targetCamScale;
-                    targetCamY = H * 0.5 - axisY * targetCamScale + 80;
-                    animTimer++;
-                    if (animTimer > 40) { phase = 3; animTimer = 0; }
-                }
-                else if (phase === 3 && mainWave) { 
-                    animTimer++;
-                    if (animTimer > 250) { 
-                        waves.push(buildWave(bx2, Math.sqrt(Math.max(0, T)), mainWave.sigma, mainWave.k0, 'transmitted'));
-                        waves.push(buildWave(bx1, Math.sqrt(Math.max(0, R)), mainWave.sigma, -mainWave.k0, 'reflected'));
-                        mainWave.dead = true;
-                        phase = 4; animTimer = 0;
-                    }
-                }
-                else if (phase === 4) { 
-                    targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
-                    for (let w of waves) {
-                        if (w.dead) continue;
-                        if (w.type === 'transmitted') w.cx += baseSpeed * 0.5;
-                        if (w.type === 'reflected') w.cx -= baseSpeed * 0.5;
-                    }
-                    if (Math.abs(camScale - 1.0) < 0.02) phase = 5;
-                }
-                else if (phase === 5) { 
-                    for (let w of waves) {
-                        if (w.dead) continue;
-                        if (w.type === 'transmitted') w.cx += baseSpeed;
-                        if (w.type === 'reflected') w.cx -= baseSpeed;
-                        if ((w.type === 'transmitted' && w.cx > W + w.sigma*3) || 
-                            (w.type === 'reflected' && w.cx < -w.sigma*3)) { w.dead = true; }
-                    }
-                    if (waves.every(w => w.dead)) doReset();
-                }
-            } 
-            else {
-                if (classicalParticle) {
-                    let cp = classicalParticle;
-                    let canPass = E >= V0;
-
-                    if (phase === 1) { 
-                        cp.x += cp.v;
-                        targetCamScale = 1.3;
-                        targetCamX = W * 0.4 - cp.x * targetCamScale;
-                        targetCamY = H * 0.5 - axisY * targetCamScale + 50;
-                        if (cp.x >= bx1 - cp.r * 4) { phase = 2; animTimer = 0; }
-                    }
-                    else if (phase === 2) { 
-                        cp.x += cp.v * 0.2; 
-                        targetCamScale = 1.9;
-                        targetCamX = W * 0.5 - bMid * targetCamScale;
-                        targetCamY = H * 0.5 - axisY * targetCamScale + 80;
-                        if (cp.x >= bx1 - cp.r) {
-                            cp.x = bx1 - cp.r;
-                            phase = 3; animTimer = 0;
-                            if (!canPass) {
-                                for(let i=0; i<15; i++) sparks.push({ x: bx1, y: axisY-cp.r + p.random(-10,10), vx: p.random(-3, -0.5), vy: p.random(-2, 2), life: 255 });
-                            }
-                        }
-                    }
-                    else if (phase === 3) { 
-                        animTimer++;
-                        if (!canPass) {
-                            cp.squish = 1.0 - ((Math.sin(animTimer * 0.1) + 1) / 2) * 0.5;
-                        } else {
-                            cp.x += 0.5; 
-                        }
-                        if (animTimer > 60) {
-                            phase = 4; cp.squish = 1.0;
-                            if (!canPass) cp.v = -cp.v; 
-                        }
-                    }
-                    else if (phase === 4) { 
-                        targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
-                        if (canPass) {
-                            cp.x += 3.0 * Math.sqrt(Math.max(0.01, E - V0)); 
-                            if (cp.x > bx2 + cp.r) { phase = 5; cp.v = 3.0 * Math.sqrt(E); }
-                        } else {
-                            cp.x += cp.v;
-                            if (Math.abs(camScale - 1.0) < 0.02) phase = 5;
-                        }
-                    }
-                    else if (phase === 5) { 
-                        cp.x += cp.v;
-                        if (cp.x > W + 50 || cp.x < -50) doReset();
-                    }
-                }
+        // --- GLOBAL TIMELINE UPDATE ---
+        if (isRunning && !isPaused) {
+            // Speed relies on particle energy
+            let speed = 0.0015 + Math.sqrt(E) * 0.002;
+            
+            // Slow down dramatically when crossing the interaction boundary (between 0.4 and 0.6 progress)
+            if (timelineProgress > 0.35 && timelineProgress < 0.65) {
+                speed *= 0.2; // Slow-mo interaction
             }
-        } // End Pausable Physics
+            
+            timelineProgress += speed;
+            simTime += 1.0; // Drive continuous phase oscillation
 
-        // --- MATH SAFE LERP (Always runs so camera un-pauses smoothly) ---
+            if (timelineProgress >= 1.0) doReset();
+        } else if (isRunning && isPaused) {
+            // Keep phase oscillating slightly to show it's alive, but freeze propagation
+            simTime += 0.2; 
+        }
+
+        // --- CAMERA DIRECTOR ---
+        let currentPhase = 0;
+        if (isRunning) {
+            if (timelineProgress < 0.3) {
+                currentPhase = 1; // Approach
+                targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
+            } 
+            else if (timelineProgress >= 0.3 && timelineProgress < 0.7) {
+                currentPhase = 2; // Interaction (Zoomed)
+                targetCamScale = 2.0; 
+                targetCamX = W * 0.5 - bMid * targetCamScale;
+                targetCamY = H * 0.5 - axisY * targetCamScale + 80;
+            }
+            else {
+                currentPhase = 3; // Departure
+                targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
+            }
+        }
+
+        // Camera Lerping
         camScale += (targetCamScale - camScale) * 0.08;
-        if (isNaN(camScale)) camScale = 1.0; 
         camScale = Math.max(0.1, Math.min(camScale, 4.0)); 
-        
         camX += (targetCamX - camX) * 0.08;
-        if (isNaN(camX)) camX = 0;
-        
         camY += (targetCamY - camY) * 0.08;
-        if (isNaN(camY)) camY = 0;
 
-        // --- RENDER MATRIX ---
+        // --- RENDER ---
         p.push();
         p.translate(camX, camY);
         p.scale(camScale);
@@ -429,127 +340,191 @@ new p5(function(p) {
         drawEnvironment(axisY, bx1, bx2);
 
         if (simMode === 'quantum') {
-            if (phase === 3) {
-                let mw = waves.find(w => w.type === 'incident');
-                if (mw) drawSuperpositionAndTunneling(axisY, bx1, bx2, mw);
-            } else {
-                for (let w of waves) { if (!w.dead) drawWaveEnvelope(w, axisY); }
+            if (isRunning) {
+                drawUnifiedWaveFunction(axisY, bx1, bx2, sigmaPx);
             }
         } else {
-            drawClassicalParticle(axisY);
-            if (!isPaused) updateSparks();
-            drawSparks();
+            if (isRunning) {
+                drawClassicalParticle(axisY, bx1, bx2);
+            }
         }
 
         p.pop();
 
-        if (phase !== 0) drawPhaseIndicator();
-        if (isPaused) {
-            p.fill(255, 132, 46); p.noStroke(); p.textSize(16); p.textAlign(p.RIGHT);
-            p.text("⏸ PAUSED", W - 20, 30);
-        }
+        drawUI(currentPhase);
 
     } catch (err) {
-        // GLOBAL RED SCREEN FAILSAFE
-        p.resetMatrix();
-        p.background(100, 0, 0);
-        p.fill(255); p.noStroke(); p.textSize(14); p.textAlign(p.LEFT);
-        p.text("Crash Prevented. Error in render loop:", 20, 30);
-        p.text(err.message, 20, 60);
-        p.noLoop(); 
+        p.resetMatrix(); p.background(100, 0, 0); p.fill(255); p.noStroke(); p.textAlign(p.LEFT);
+        p.text("Crash Prevented. Render Error:", 20, 30); p.text(err.message, 20, 60); p.noLoop(); 
     }
   };
 
-  // --- SMOOTH SUPERPOSITION RENDERER ---
-  function drawSuperpositionAndTunneling(axisY, bx1, bx2, mainWave) {
-      let t = Math.min(1.0, animTimer / 250.0);
-      let k = Math.sqrt(E) * 0.12; // Smoother wavelength
-      let phase_time = simTime * 0.12; 
+  // --- THE UNIFIED WAVE ENGINE ---
+  // This calculates the perfect superposition at every pixel X without jumping
+  function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
+      // Map timeline (0 to 1) to physical space (-W*0.2 to W*1.2)
+      let totalDist = W * 1.4;
+      let startX = -W * 0.2;
+      let cx_in = startX + (totalDist * timelineProgress);
       
-      let travelDist = mainWave.sigma * 4; 
-      let cx_in = bx1 - mainWave.sigma + (travelDist * t);
-      let cx_ref = bx1 + mainWave.sigma - (travelDist * t);
-      let cx_tr = bx2 - mainWave.sigma + (travelDist * Math.max(0, t - 0.2)); 
+      let sigSq = Math.max(0.001, sigma * sigma);
+      let k_inc = Math.sqrt(E) * 0.12; 
+      let wt = simTime * 0.15; // Oscillation speed
+      
+      let amp_R = Math.sqrt(Math.max(0, R));
+      let amp_T = Math.sqrt(Math.max(0, T));
+      
+      let decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.10 : 0;
+      let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
 
-      let amp_ref = Math.sqrt(Math.max(0, R));
-      let amp_tr = Math.sqrt(Math.max(0, T));
-      let decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.08 : 0;
-      let k_barrier = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
+      // Ensure transmitted phase aligns perfectly at right wall
+      let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
 
-      // Ensure phase connects perfectly at the right wall
-      let phase_at_bx2 = E >= V0 ? k_barrier * (bx2 - bx1) - phase_time : -phase_time;
-
-      // Draw the Probability Density Fill
+      // Draw Probability Density (Fill)
       p.noStroke();
       p.beginShape();
-      p.vertex(bx1 - mainWave.sigma * 4, axisY);
-      for (let px = bx1 - mainWave.sigma * 4; px <= bx2 + mainWave.sigma * 4; px += 1.5) {
-          let val = calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, phase_at_bx2, amp_ref, amp_tr, decay, k_barrier, t, mainWave.sigma);
-          
-          let c = COL_INC;
-          if (px > bx2) c = COL_TRANS;
-          else if (px > bx1 && px <= bx2) c = E < V0 ? COL_SUPER : COL_TRANS;
-          else if (t > 0.3) c = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), t); 
-          
-          p.fill(c.levels ? c.levels[0] : c[0], c.levels ? c.levels[1] : c[1], c.levels ? c.levels[2] : c[2], 40);
-          p.vertex(px, axisY - (val * val * 55)); 
+      // Draw from left edge to right edge of visible packet
+      let minDraw = Math.min(cx_in, bx1) - sigma * 4;
+      let maxDraw = Math.max(cx_in, bx2) + sigma * 4;
+      p.vertex(minDraw, axisY);
+
+      for (let x = minDraw; x <= maxDraw; x += 1.5) {
+          let val = 0;
+          let env = 0;
+          let colorBlend = COL_INC; // Default Blue
+
+          if (x <= bx1) {
+              // REGION 1: Superposition (Incident + Reflected)
+              // Reflected wave mirrors incident wave from the wall
+              let cx_ref = bx1 + (bx1 - cx_in); 
+              let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
+              let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
+              
+              val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
+              
+              // Visual color blend (Blue to Purple)
+              if (env_r > 0.01) colorBlend = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), env_r / (env_i + env_r));
+          } 
+          else if (x > bx1 && x <= bx2) {
+              // REGION 2: Inside Barrier
+              let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
+              let amp_L = env_base * (1.0 + amp_R);
+              let amp_R_bound = env_base * amp_T;
+              
+              if (E < V0) {
+                  // Evanescent Decay
+                  let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
+                  let req_kappa = -Math.log(ratio) / (bx2 - bx1);
+                  val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
+                  colorBlend = COL_SUPER;
+              } else {
+                  // Tunneling Propagation
+                  let pct = (x - bx1) / (bx2 - bx1);
+                  let amp_x = amp_L + pct * (amp_R_bound - amp_L);
+                  val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
+                  colorBlend = COL_TRANS;
+              }
+          } 
+          else {
+              // REGION 3: Transmitted Wave
+              let cx_tr = bx2 + (cx_in - bx1);
+              let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
+              let phase = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
+              val = env_t * Math.cos(phase);
+              colorBlend = COL_TRANS; // Pure Green
+          }
+
+          p.fill(colorBlend.levels ? colorBlend.levels[0] : colorBlend[0], 
+                 colorBlend.levels ? colorBlend.levels[1] : colorBlend[1], 
+                 colorBlend.levels ? colorBlend.levels[2] : colorBlend[2], 50);
+          p.vertex(x, axisY - (val * val * 65)); // Density envelope
       }
-      p.vertex(bx2 + mainWave.sigma * 4, axisY);
+      p.vertex(maxDraw, axisY);
       p.endShape();
 
-      // Draw the High-Res Real Wave Function
+      // Draw Real Wave Line
       p.noFill();
       p.strokeWeight(2.5 / camScale);
       p.beginShape();
-      // Using a much smaller step (px += 1) stops it from looking jagged
-      for (let px = bx1 - mainWave.sigma * 4; px <= bx2 + mainWave.sigma * 4; px += 1) {
-          let val = calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, phase_at_bx2, amp_ref, amp_tr, decay, k_barrier, t, mainWave.sigma);
-          
-          let c = COL_INC;
-          if (px > bx2) c = COL_TRANS;
-          else if (px > bx1 && px <= bx2) c = E < V0 ? COL_SUPER : COL_TRANS;
-          else if (t > 0.3) c = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), t);
-          
-          p.stroke(c.levels ? c.levels[0] : c[0], c.levels ? c.levels[1] : c[1], c.levels ? c.levels[2] : c[2], 255);
-          p.vertex(px, axisY - (val * 45));
+      for (let x = minDraw; x <= maxDraw; x += 1) { // High res line
+          let val = 0;
+          let colorBlend = COL_INC;
+
+          if (x <= bx1) {
+              let cx_ref = bx1 + (bx1 - cx_in); 
+              let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
+              let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
+              val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
+              if (env_r > 0.01) colorBlend = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), env_r / (env_i + env_r));
+          } 
+          else if (x > bx1 && x <= bx2) {
+              let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
+              let amp_L = env_base * (1.0 + amp_R);
+              let amp_R_bound = env_base * amp_T;
+              
+              if (E < V0) {
+                  let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
+                  let req_kappa = -Math.log(ratio) / (bx2 - bx1);
+                  val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
+                  colorBlend = COL_SUPER;
+              } else {
+                  let pct = (x - bx1) / (bx2 - bx1);
+                  let amp_x = amp_L + pct * (amp_R_bound - amp_L);
+                  val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
+                  colorBlend = COL_TRANS;
+              }
+          } 
+          else {
+              let cx_tr = bx2 + (cx_in - bx1);
+              let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
+              let phase = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
+              val = env_t * Math.cos(phase);
+              colorBlend = COL_TRANS;
+          }
+
+          p.stroke(colorBlend.levels ? colorBlend.levels[0] : colorBlend[0], 
+                   colorBlend.levels ? colorBlend.levels[1] : colorBlend[1], 
+                   colorBlend.levels ? colorBlend.levels[2] : colorBlend[2], 255);
+          p.vertex(x, axisY - (val * 45));
       }
       p.endShape();
   }
 
-  function calculateWaveAmplitude(px, bx1, bx2, cx_in, cx_ref, cx_tr, k, phase_time, phase_at_bx2, amp_ref, amp_tr, decay, k_barrier, t, sigma) {
-      let sigSq = Math.max(0.001, sigma * sigma);
-      
-      if (px <= bx1) {
-          let env_in = Math.exp(-Math.pow(px - cx_in, 2) / (2 * sigSq));
-          let wave_in = env_in * Math.cos(k * (px - bx1) - phase_time);
-          
-          let env_ref = Math.exp(-Math.pow(px - cx_ref, 2) / (2 * sigSq));
-          let wave_ref = amp_ref * env_ref * Math.cos(-k * (px - bx1) - phase_time);
-          
-          return wave_in + wave_ref;
-      } 
-      else if (px > bx1 && px <= bx2) {
-          let x_bar = px - bx1;
-          let penetration_progress = Math.min(1.0, t * 1.5);
-          
-          if (E < V0) {
-              let env = Math.exp(-decay * x_bar);
-              let val = Math.cos(-phase_time) * env * penetration_progress;
-              let front = bx1 + (bx2 - bx1) * t * 1.2;
-              if (px > front) val *= Math.max(0, 1.0 - (px - front) / 10.0);
-              val *= p.map(px, bx1, bx2, 1.0, amp_tr, true);
-              return val;
+  function drawClassicalParticle(axisY, bx1, bx2) {
+      let totalDist = W * 1.4;
+      let startX = -W * 0.2;
+      let raw_x = startX + (totalDist * timelineProgress);
+      let r = 12;
+      let squish = 1.0;
+      let final_x = raw_x;
+      let canPass = E >= V0;
+
+      if (raw_x > bx1 - r && raw_x < bx2 + r) {
+          if (!canPass) {
+              // It bounces back
+              let overlap = raw_x - (bx1 - r);
+              if (overlap < 15) { final_x = bx1 - r; squish = 1.0 - (overlap/30); } // Squishing
+              else final_x = (bx1 - r) - (overlap - 15); // Reflecting
           } else {
-              let val = Math.cos(k_barrier * x_bar - phase_time) * penetration_progress;
-              val *= p.map(px, bx1, bx2, 1.0, amp_tr, true);
-              return val;
+              // It slows down inside
+              let speedRatio = Math.sqrt(E - V0) / Math.sqrt(E);
+              final_x = bx1 - r + (raw_x - (bx1 - r)) * speedRatio;
           }
-      } 
-      else {
-          let env_tr = Math.exp(-Math.pow(px - cx_tr, 2) / (2 * sigSq));
-          let emerge_ramp = Math.max(0, Math.min(1.0, (t - 0.2) * 2.0));
-          return amp_tr * env_tr * emerge_ramp * Math.cos(k * (px - bx2) + phase_at_bx2);
+      } else if (!canPass && raw_x >= bx2 + r) {
+           final_x = startX; // Hide it if it bounced and time kept going
       }
+
+      p.push(); p.translate(final_x, axisY - r);
+      if (canPass && final_x > bx1 && final_x < bx2) {
+          p.noStroke(); p.fill(46, 255, 132, 20); p.circle(-r, 0, r*5);
+      }
+      if (squish !== 1.0) { p.translate(r, 0); p.scale(squish, 2 - squish); p.translate(-r, 0); }
+
+      let c = E >= V0 ? COL_TRANS : COL_REFL;
+      p.noStroke(); p.fill(c[0], c[1], c[2], 60); p.circle(0, 0, r * 2.8);
+      p.fill(c[0], c[1], c[2], 255); p.circle(0, 0, r * 2);
+      p.fill(255, 255, 255, 180); p.circle(-r*0.3, -r*0.3, r*0.5);
+      p.pop();
   }
 
   function drawEnvironment(axisY, bx1, bx2) {
@@ -575,79 +550,18 @@ new p5(function(p) {
     p.line(-W, ey, W*2, ey);
   }
 
-  function drawWaveEnvelope(wp, axisY) {
-    let pts_env = []; let pts_wave = []; let drawScale = 55; 
-    let k = Math.sqrt(E) * 0.12; 
-    
-    for (let px = wp.cx - wp.sigma*3; px <= wp.cx + wp.sigma*3; px += 1) {
-      let dx = px - wp.cx;
-      let sigSq = Math.max(0.001, wp.sigma * wp.sigma);
-      let gaussian = Math.exp(-(dx * dx) / (2 * sigSq));
-      let density = wp.amp * wp.amp * gaussian * gaussian; 
-      
-      // Calculate real wave inside envelope
-      let phase_val = (wp.k0 > 0 ? k : -k) * px - (simTime * 0.12);
-      let wave_val = wp.amp * gaussian * Math.cos(phase_val);
-
-      pts_env.push({ x: px, y: axisY - density * drawScale });
-      pts_wave.push({ x: px, y: axisY - wave_val * 45 });
-    }
-    
-    if (pts_env.length > 0) {
-        let c = wp.col;
-        
-        // Probability Envelope Fill
-        p.noStroke(); p.fill(c[0], c[1], c[2], 40);
-        p.beginShape(); p.vertex(pts_env[0].x, axisY);
-        for (let pt of pts_env) p.vertex(pt.x, pt.y);
-        p.vertex(pts_env[pts_env.length-1].x, axisY); p.endShape();
-        
-        // Internal Oscillating Wave Line
-        p.stroke(c[0], c[1], c[2], 255); p.strokeWeight(2.5 / camScale); p.noFill();
-        p.beginShape(); for (let pt of pts_wave) p.vertex(pt.x, pt.y); p.endShape();
-    }
-  }
-
-  function drawClassicalParticle(axisY) {
-    if (!classicalParticle) return;
-    let cp = classicalParticle; let by = axisY - cp.r;
-    
-    p.push(); p.translate(cp.x, by);
-    if (phase === 3 && E >= V0) {
-        p.noStroke(); p.fill(46, 255, 132, 20);
-        p.circle(-cp.r, 0, cp.r*5); p.circle(-cp.r*2, 0, cp.r*3);
-    }
-    if (cp.squish !== 1.0) { p.translate(cp.r, 0); p.scale(cp.squish, 2 - cp.squish); p.translate(-cp.r, 0); }
-
-    let c = E >= V0 ? COL_TRANS : COL_REFL;
-    p.noStroke();
-    p.fill(c[0], c[1], c[2], 60); p.circle(0, 0, cp.r * 2.8);
-    p.fill(c[0], c[1], c[2], 255); p.circle(0, 0, cp.r * 2);
-    p.fill(255, 255, 255, 180); p.circle(-cp.r*0.3, -cp.r*0.3, cp.r*0.5);
-    p.pop();
-  }
-
-  function updateSparks() {
-      for(let i = sparks.length - 1; i >= 0; i--) {
-          let s = sparks[i]; s.x += s.vx; s.y += s.vy; s.life -= 15;
-          if (s.life <= 0) sparks.splice(i, 1);
+  function drawUI(currentPhase) {
+      if (isRunning) {
+          p.fill(255); p.noStroke(); p.textSize(12); p.textAlign(p.CENTER);
+          let textStr = currentPhase === 1 ? "Tracking Incident Packet..." : 
+                        currentPhase === 2 ? (simMode === 'quantum' ? "Superposition & Exponential Decay..." : "Kinetic Boundary Interaction...") : 
+                        "Transmitted / Reflected Views";
+          p.text(textStr, W/2, 30);
       }
-  }
-
-  function drawSparks() {
-      for (let s of sparks) {
-          p.stroke(255, 132, 46, Math.max(0, s.life)); p.strokeWeight(2 / camScale);
-          p.line(s.x, s.y, s.x - s.vx*2, s.y - s.vy*2);
+      if (isPaused) {
+          p.fill(255, 132, 46); p.noStroke(); p.textSize(16); p.textAlign(p.RIGHT);
+          p.text("⏸ PAUSED", W - 20, 30);
       }
-  }
-
-  function drawPhaseIndicator() {
-    p.fill(255); p.noStroke(); p.textSize(12); p.textAlign(p.CENTER);
-    let textStr = phase === 1 ? "Tracking Incident Packet..." : 
-                  phase === 2 ? "Approaching Barrier Boundary..." : 
-                  phase === 3 ? (simMode === 'quantum' ? "Superposition Disruption & Evanescent Penetration..." : (E >= V0 ? "Surmounting Potential Barrier (Slowing Down)" : "Kinetic Impact & Hard Reflection")) : 
-                  "Macro View Restored";
-    p.text(textStr, W/2, 30);
   }
 
 }, document.getElementById('qt-canvas'));
