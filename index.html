@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Full Feature Suite</title>
+<title>Cinematic Quantum Tunneling - Optimized Master</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -74,13 +74,15 @@
   .btn-reset { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
   .btn-reset:hover { background: #1a283b; color: #fff; }
 
-  /* Legend Styles */
+  /* Legend & View Toggles */
   .legend-box { background: #06090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; }
-  .legend-title { width: 100%; font-size: 10px; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; font-weight: 700; }
+  .legend-title { width: 100%; font-size: 10px; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; font-weight: 700; display:flex; justify-content: space-between;}
   .leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-light); width: calc(50% - 5px); }
   .leg-color { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-  .leg-line { width: 14px; height: 3px; border-radius: 1px; display: inline-block; }
-
+  
+  .toggle-wrap { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; }
+  .toggle-wrap input[type="checkbox"] { cursor: pointer; accent-color: var(--accent-blue); width: 14px; height: 14px; }
+  .toggle-wrap label { color: var(--text-light); font-size: 12px; cursor: pointer; user-select: none; font-weight: 500;}
 </style>
 </head>
 <body>
@@ -89,7 +91,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.10 11:45 PDT</div>
+      <div class="version-tag">v2026.04.10 12:15 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -122,13 +124,20 @@
       </div>
 
       <div class="legend-box">
-        <div class="legend-title">Simulation Key</div>
+        <div class="legend-title"><span>Simulation Key & Toggles</span></div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(46, 182, 255, 0.8)"></span> Incident Wave</div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(196, 122, 255, 0.8)"></span> Superposition</div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(46, 255, 132, 0.8)"></span> Transmitted</div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(255, 132, 46, 0.8)"></span> Reflected</div>
-        <div class="leg-item" style="width:100%"><span class="leg-line" style="background:rgba(255, 255, 255, 0.8)"></span> Re[Ψ] (Real Wave Function)</div>
-        <div class="leg-item" style="width:100%"><span class="leg-color" style="background:rgba(255, 255, 255, 0.2)"></span> |Ψ|² (Probability Density)</div>
+        
+        <div class="toggle-wrap" style="margin-top: 8px;">
+          <input type="checkbox" id="cbReal" checked> 
+          <label for="cbReal">Show Real Wave Function Re[Ψ] (Line)</label>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="cbProb" checked> 
+          <label for="cbProb">Show Probability Density |Ψ|² (Glow)</label>
+        </div>
       </div>
 
     </div>
@@ -183,7 +192,7 @@
 window.onload = function() {
     let loader = document.getElementById('loading-msg');
     if (typeof p5 === 'undefined') {
-        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. Check internet connection.</span>";
+        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. Check your internet connection.</span>";
     } else {
         if(loader) loader.style.display = 'none';
     }
@@ -204,9 +213,9 @@ new p5(function(p) {
 
   let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8, simSpeed = 1.0;
   let T = 0, R = 1;
+  let showReal = true, showProb = true;
 
   let phase = 0; 
-  let animTimer = 0;
   let simTime = 0; 
   let timelineProgress = 0;
   
@@ -218,10 +227,7 @@ new p5(function(p) {
   let camX = 0, camY = 0, camScale = 1.0;
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
-  let waves = [];
-  let sparks = []; 
-  let classicalParticle = null;
-
+  // Primitive Arrays for colors (Memory Safe)
   const COL_TRANS = [46, 255, 132];
   const COL_REFL  = [255, 132, 46];
   const COL_INC   = [46, 182, 255];
@@ -229,7 +235,7 @@ new p5(function(p) {
 
   function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
-    if (Math.abs(E_ - V0_) < 0.005) { return 1 / (1 + (2 * 0.038 * V0_ * a * a)); }
+    if (Math.abs(E_ - V0_) < 0.005) return 1 / (1 + (2 * 0.038 * V0_ * a * a)); 
     if (E_ > V0_) {
       let k1 = Math.sqrt(E_), k2 = Math.sqrt(Math.max(0.0001, E_ - V0_));
       let sinSq = Math.pow(Math.sin(k2 * a), 2);
@@ -246,7 +252,6 @@ new p5(function(p) {
     timelineProgress = 0; simTime = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
-    waves = []; sparks = []; classicalParticle = null;
     
     let btnF = document.getElementById('btnFire');
     if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
@@ -258,11 +263,6 @@ new p5(function(p) {
     if (btnO) btnO.textContent = "Observe";
   }
   window.doReset = doReset;
-
-  function buildWave(cx, amp, sigma, k0, type) {
-    let col = type === 'transmitted' ? COL_TRANS : type === 'reflected' ? COL_REFL : COL_INC;
-    return { cx, amp, sigma, k0, col, type, dead: false };
-  }
 
   p.setup = function() {
     try {
@@ -276,11 +276,6 @@ new p5(function(p) {
         document.getElementById('btnFire').onclick = () => { 
           if (!isRunning) { 
             isRunning = true;
-            let startX = -W * 0.2; 
-            let k0 = Math.sqrt(E) * 3.0;
-            if (simMode === 'quantum') waves = [buildWave(startX, 1.0, spread * 40, k0, 'incident')];
-            else classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
-            
             document.getElementById('btnFire').disabled = true;
             document.getElementById('btnFire').style.opacity = 0.5;
             document.getElementById('btnFire').textContent = "In Motion...";
@@ -292,7 +287,6 @@ new p5(function(p) {
             if (!isRunning) return;
             isPaused = !isPaused;
             if (!isPaused && collapsedParticle !== null) {
-                // Resuming from a collapsed state un-collapses the wave
                 collapsedParticle = null;
                 document.getElementById('btnObserve').textContent = "Observe";
             }
@@ -304,13 +298,14 @@ new p5(function(p) {
 
         document.getElementById('btnObserve').onclick = () => {
             if (simMode !== 'quantum' || !isRunning || phase === 0 || phase === 5) return;
-            if (collapsedParticle === null) {
-                triggerCollapse = true; // Handled in the next draw loop to capture state
-            }
+            if (collapsedParticle === null) triggerCollapse = true; 
         };
 
         document.getElementById('btnReset').onclick = doReset;
         
+        document.getElementById('cbReal').onchange = (e) => showReal = e.target.checked;
+        document.getElementById('cbProb').onchange = (e) => showProb = e.target.checked;
+
         ['energy','height','width','spread','speed'].forEach(id => {
           let el = document.getElementById(id+'Slider');
           if(el) el.oninput = function() { updateParams(); if(!isRunning && id !== 'speed') doReset(); };
@@ -355,15 +350,12 @@ new p5(function(p) {
 
         // --- GLOBAL TIMELINE UPDATE ---
         if (isRunning && !isPaused) {
-            let speed = (0.0015 + Math.sqrt(E) * 0.002) * simSpeed;
-            if (timelineProgress > 0.35 && timelineProgress < 0.65) speed *= 0.2; // Slow-mo interaction
-            
+            let speed = (0.001 + Math.sqrt(E) * 0.0015) * simSpeed;
             timelineProgress += speed;
             simTime += 1.0 * simSpeed; 
-
             if (timelineProgress >= 1.0) doReset();
         } else if (isRunning && isPaused && collapsedParticle === null) {
-            simTime += 0.2; // Small oscillation while paused
+            simTime += 0.2; 
         }
 
         // --- CAMERA DIRECTOR ---
@@ -379,7 +371,7 @@ new p5(function(p) {
             }
         }
 
-        // Safe Camera Lerping
+        // Safe Math Lerping
         camScale += (targetCamScale - camScale) * 0.08;
         camScale = Math.max(0.1, Math.min(camScale, 4.0)); 
         camX += (targetCamX - camX) * 0.08;
@@ -399,7 +391,6 @@ new p5(function(p) {
         }
 
         p.pop();
-
         drawUI(phase);
 
     } catch (err) {
@@ -408,7 +399,7 @@ new p5(function(p) {
     }
   };
 
-  // --- THE UNIFIED WAVE ENGINE WITH COLLAPSE ---
+  // --- THE UNIFIED WAVE ENGINE (ZERO OBJECT ALLOCATION) ---
   function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
       let totalDist = W * 1.4;
       let startX = -W * 0.2;
@@ -425,70 +416,73 @@ new p5(function(p) {
       let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
       let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
 
-      let minDraw = Math.min(cx_in, bx1) - sigma * 4;
-      let maxDraw = Math.max(cx_in, bx2) + sigma * 4;
+      let minDraw = -W;
+      let maxDraw = W * 2.5;
 
-      // Variables for Observation Collapse
       let densityArray = [];
       let totalDensity = 0;
-
-      // If collapsed, fade the wave
       let alphaMult = (collapsedParticle !== null) ? 0.15 : 1.0;
 
       // 1. Draw Probability Density Fill
-      p.noStroke();
-      p.beginShape();
-      p.vertex(minDraw, axisY);
+      if (showProb) {
+          p.noStroke();
+          p.beginShape();
+          p.vertex(minDraw, axisY);
 
-      for (let x = minDraw; x <= maxDraw; x += 1.5) {
-          let val = 0;
-          let colorBlend = COL_INC;
+          for (let x = minDraw; x <= maxDraw; x += 2.0) {
+              let val = 0;
+              let cr = COL_INC[0], cg = COL_INC[1], cb = COL_INC[2];
 
-          if (x <= bx1) {
-              let cx_ref = bx1 + (bx1 - cx_in); 
-              let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
-              let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
-              val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
-              if (env_r > 0.01) colorBlend = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), env_r / (env_i + env_r));
-          } 
-          else if (x > bx1 && x <= bx2) {
-              let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
-              let amp_L = env_base * (1.0 + amp_R);
-              let amp_R_bound = env_base * amp_T;
-              
-              if (E < V0) {
-                  let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
-                  let req_kappa = -Math.log(ratio) / (bx2 - bx1);
-                  val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
-                  colorBlend = COL_SUPER;
-              } else {
-                  let pct = (x - bx1) / (bx2 - bx1);
-                  let amp_x = amp_L + pct * (amp_R_bound - amp_L);
-                  val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
-                  colorBlend = COL_TRANS;
+              if (x <= bx1) {
+                  let cx_ref = bx1 + (bx1 - cx_in); 
+                  let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
+                  let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
+                  val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
+                  
+                  if (env_r > 0.01) {
+                      let amt = env_r / (env_i + env_r);
+                      cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
+                      cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
+                      cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
+                  }
+              } 
+              else if (x > bx1 && x <= bx2) {
+                  let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
+                  let amp_L = env_base * (1.0 + amp_R);
+                  let amp_R_bound = env_base * amp_T;
+                  
+                  if (E < V0) {
+                      let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
+                      let req_kappa = -Math.log(ratio) / (bx2 - bx1);
+                      val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
+                      cr = COL_SUPER[0]; cg = COL_SUPER[1]; cb = COL_SUPER[2];
+                  } else {
+                      let pct = (x - bx1) / (bx2 - bx1);
+                      let amp_x = amp_L + pct * (amp_R_bound - amp_L);
+                      val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
+                      cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
+                  }
+              } 
+              else {
+                  let cx_tr = bx2 + (cx_in - bx1);
+                  let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
+                  let phaseCalc = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
+                  val = env_t * Math.cos(phaseCalc);
+                  cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
               }
-          } 
-          else {
-              let cx_tr = bx2 + (cx_in - bx1);
-              let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
-              let phase = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
-              val = env_t * Math.cos(phase);
-              colorBlend = COL_TRANS;
-          }
 
-          let probDensity = val * val;
-          if (triggerCollapse) {
-              densityArray.push({x: x, p: probDensity});
-              totalDensity += probDensity;
-          }
+              let probDensity = val * val;
+              if (triggerCollapse) {
+                  densityArray.push({x: x, p: probDensity});
+                  totalDensity += probDensity;
+              }
 
-          p.fill(colorBlend.levels ? colorBlend.levels[0] : colorBlend[0], 
-                 colorBlend.levels ? colorBlend.levels[1] : colorBlend[1], 
-                 colorBlend.levels ? colorBlend.levels[2] : colorBlend[2], 50 * alphaMult);
-          p.vertex(x, axisY - (probDensity * 65)); 
+              p.fill(cr, cg, cb, 50 * alphaMult);
+              p.vertex(x, axisY - (probDensity * 65)); 
+          }
+          p.vertex(maxDraw, axisY);
+          p.endShape();
       }
-      p.vertex(maxDraw, axisY);
-      p.endShape();
 
       // EXECUTE WAVE FUNCTION COLLAPSE
       if (triggerCollapse) {
@@ -503,7 +497,6 @@ new p5(function(p) {
                       break;
                   }
               }
-              // Pause simulation upon collapse
               isPaused = true;
               let btnP = document.getElementById('btnPause');
               if (btnP) { btnP.textContent = "Resume"; btnP.classList.add('paused'); }
@@ -512,69 +505,75 @@ new p5(function(p) {
       }
 
       // 2. Draw Real Wave Line
-      p.noFill();
-      p.strokeWeight(2.5 / camScale);
-      p.beginShape();
-      for (let x = minDraw; x <= maxDraw; x += 1) { 
-          let val = 0;
-          let colorBlend = COL_INC;
+      if (showReal) {
+          p.noFill();
+          p.strokeWeight(2.5 / camScale);
+          p.beginShape();
+          for (let x = minDraw; x <= maxDraw; x += 1.5) { 
+              let val = 0;
+              let cr = COL_INC[0], cg = COL_INC[1], cb = COL_INC[2];
 
-          if (x <= bx1) {
-              let cx_ref = bx1 + (bx1 - cx_in); 
-              let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
-              let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
-              val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
-              if (env_r > 0.01) colorBlend = p.lerpColor(p.color(COL_INC), p.color(COL_SUPER), env_r / (env_i + env_r));
-          } 
-          else if (x > bx1 && x <= bx2) {
-              let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
-              let amp_L = env_base * (1.0 + amp_R);
-              let amp_R_bound = env_base * amp_T;
-              
-              if (E < V0) {
-                  let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
-                  let req_kappa = -Math.log(ratio) / (bx2 - bx1);
-                  val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
-                  colorBlend = COL_SUPER;
-              } else {
-                  let pct = (x - bx1) / (bx2 - bx1);
-                  let amp_x = amp_L + pct * (amp_R_bound - amp_L);
-                  val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
-                  colorBlend = COL_TRANS;
+              if (x <= bx1) {
+                  let cx_ref = bx1 + (bx1 - cx_in); 
+                  let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
+                  let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
+                  val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
+                  
+                  if (env_r > 0.01) {
+                      let amt = env_r / (env_i + env_r);
+                      cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
+                      cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
+                      cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
+                  }
+              } 
+              else if (x > bx1 && x <= bx2) {
+                  let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
+                  let amp_L = env_base * (1.0 + amp_R);
+                  let amp_R_bound = env_base * amp_T;
+                  
+                  if (E < V0) {
+                      let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
+                      let req_kappa = -Math.log(ratio) / (bx2 - bx1);
+                      val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
+                      cr = COL_SUPER[0]; cg = COL_SUPER[1]; cb = COL_SUPER[2];
+                  } else {
+                      let pct = (x - bx1) / (bx2 - bx1);
+                      let amp_x = amp_L + pct * (amp_R_bound - amp_L);
+                      val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
+                      cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
+                  }
+              } 
+              else {
+                  let cx_tr = bx2 + (cx_in - bx1);
+                  let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
+                  let phaseCalc = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
+                  val = env_t * Math.cos(phaseCalc);
+                  cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
               }
-          } 
-          else {
-              let cx_tr = bx2 + (cx_in - bx1);
-              let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
-              let phase = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
-              val = env_t * Math.cos(phase);
-              colorBlend = COL_TRANS;
+
+              p.stroke(cr, cg, cb, 255 * alphaMult);
+              p.vertex(x, axisY - (val * 45));
           }
-
-          p.stroke(colorBlend.levels ? colorBlend.levels[0] : colorBlend[0], 
-                   colorBlend.levels ? colorBlend.levels[1] : colorBlend[1], 
-                   colorBlend.levels ? colorBlend.levels[2] : colorBlend[2], 255 * alphaMult);
-          p.vertex(x, axisY - (val * 45));
+          p.endShape();
       }
-      p.endShape();
 
-      // 3. Draw Collapsed Particle if observed
+      // Floating Label for Transmitted Wave
+      if (timelineProgress > 0.5 && T > 0.01 && alphaMult === 1.0) {
+          p.fill(46, 255, 132, 220); p.noStroke(); p.textAlign(p.LEFT); p.textSize(12 / camScale);
+          p.text("Transmitted Wave Function", bx2 + 20, axisY - 60 / camScale);
+      }
+
+      // 3. Draw Collapsed Particle Speck
       if (collapsedParticle !== null) {
           p.noStroke();
-          // Draw flash/glow
-          p.fill(255, 255, 255, 50);
-          p.circle(collapsedParticle, axisY, 25 / camScale);
-          p.fill(255, 255, 255, 100);
-          p.circle(collapsedParticle, axisY, 12 / camScale);
-          // Solid core
-          p.fill(255, 255, 255, 255);
-          p.circle(collapsedParticle, axisY, 4 / camScale);
+          p.fill(255, 255, 200, 200); p.circle(collapsedParticle, axisY, 8 / camScale); 
+          p.fill(255, 255, 255, 255); p.circle(collapsedParticle, axisY, 3 / camScale); 
           
-          // Draw label above it
-          p.fill(255);
-          p.textSize(10 / camScale);
-          p.textAlign(p.CENTER);
-          p.text("Observed Particle", collapsedParticle, axisY - 25 / camScale);
+          p.stroke(255, 255, 255, 100); p.strokeWeight(1/camScale); p.noFill();
+          p.circle(collapsedParticle, axisY, 16 / camScale); 
+          
+          p.fill(255); p.noStroke(); p.textSize(11 / camScale); p.textAlign(p.CENTER);
+          p.text("Collapsed to Speck", collapsedParticle, axisY - 20 / camScale);
       }
   }
 
