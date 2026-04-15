@@ -3,15 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Network & Perf Stabilized</title>
-
-<script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
-<script>
-  if (typeof p5 === 'undefined') {
-      document.write('<script src="https://unpkg.com/p5@1.9.0/lib/p5.min.js"><\/script>');
-  }
-</script>
-
+<title>Cinematic Quantum Tunneling - Vanilla JS Master</title>
 <style>
   :root {
     --bg-main: #06090e;
@@ -43,7 +35,8 @@
   .tab-btn:hover { color: var(--text-light); }
   .tab-btn.active { background: #1a283b; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
   
-  #qt-canvas { display: block; width: 100%; height: 440px; cursor: crosshair; position: relative; }
+  #qt-canvas { display: block; width: 100%; height: 440px; cursor: crosshair; position: relative; background: #0a0f16; }
+  canvas { display: block; width: 100%; height: 100%; }
   
   #qt-controls { background: var(--bg-panel); border-top: 1px solid var(--border); padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; }
   .control-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; }
@@ -67,8 +60,8 @@
   .action-btn { padding: 12px 8px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s; flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
   
   .btn-fire { background: var(--accent-purple); color: #fff; box-shadow: 0 4px 15px rgba(196, 122, 255, 0.3); }
-  .btn-fire:hover { filter: brightness(1.1); transform: translateY(-2px); }
-  .btn-fire:active { transform: translateY(1px); box-shadow: none; }
+  .btn-fire:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); }
+  .btn-fire:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
   .btn-fire:disabled { opacity: 0.3; cursor: not-allowed; filter: none; transform: none; box-shadow: none; }
   
   .btn-pause { background: #1a283b; color: #fff; border: 1px solid var(--border); }
@@ -99,19 +92,16 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.15 13:40 PDT</div>
+      <div class="version-tag">v2026.04.15 14:15 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
       </div>
     </div>
   </div>
-  <div id="qt-canvas">
-      <div id="loading-msg" style="color:#7a93b3; padding: 20px; text-align: center; font-family: monospace;">
-          Initializing Simulation Graphics...<br><br>
-          <span style="font-size: 11px; color: #ff842e;" id="load-warning"></span>
-      </div>
-  </div>
+  
+  <div id="qt-canvas"></div>
+  
   <div id="qt-controls">
     <div class="left-col">
       <div class="btn-row">
@@ -137,7 +127,7 @@
         <div class="leg-item"><span class="leg-color" style="background:rgba(46, 182, 255, 0.8)"></span> Incident Wave</div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(196, 122, 255, 0.8)"></span> Superposition</div>
         <div class="leg-item"><span class="leg-color" style="background:rgba(46, 255, 132, 0.8)"></span> Transmitted</div>
-        <div class="leg-item"><span class="leg-color" style="background:rgba(255, 132, 46, 0.8)"></span> Reflected</div>
+        <div class="leg-item"><span class="leg-color" style="background:rgba(100, 255, 255, 0.8)"></span> Dispersing Wave</div>
         
         <div class="toggle-wrap" style="margin-top: 8px;">
           <input type="checkbox" id="cbReal" checked> 
@@ -198,156 +188,99 @@
 </div>
 
 <script>
-// Final Network Failsafe
-window.onload = function() {
-    let loader = document.getElementById('loading-msg');
-    let warn = document.getElementById('load-warning');
-    setTimeout(() => {
-        if (typeof p5 === 'undefined' && loader) {
-            loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>NETWORK ERROR:</b> Your browser blocked the p5.js library from downloading. Please check your firewall, AdBlocker, or Live Server settings.</span>";
-        }
-    }, 2000);
-    if (typeof p5 !== 'undefined' && loader) {
-        loader.style.display = 'none';
-    }
-};
+// --- Vanilla JS Implementation - No External Dependencies ---
+let W = 800, H = 440;
+const AXIS_Y_FRAC = 0.65;
 
+let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8, simSpeed = 1.0;
+let T = 0, R = 1;
+let showReal = true, showProb = true;
 let simMode = 'quantum';
-function setMode(m) {
-  simMode = m;
-  document.getElementById('tabQuantum').className = 'tab-btn' + (m==='quantum'?' active':'');
-  document.getElementById('tabClassical').className = 'tab-btn' + (m==='classical'?' active':'');
-  document.getElementById('btnObserve').disabled = (m === 'classical');
-  if (typeof window.doReset === 'function') window.doReset();
+
+let phase = 0; 
+let simTime = 0; 
+let timelineProgress = 0;
+
+let isRunning = false;
+let isPaused = false;
+let triggerCollapse = false;
+
+// Dispersion State Variables
+let collapsedParticle = null;
+let collapseAge = 0;
+
+let camX = 0, camY = 0, camScale = 1.0;
+let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
+
+let classicalParticle = null;
+
+const COL_TRANS = [46, 255, 132];
+const COL_REFL  = [255, 132, 46];
+const COL_INC   = [46, 182, 255];
+const COL_SUPER = [196, 122, 255];
+
+let canvas, ctx;
+
+function initCanvas() {
+    let container = document.getElementById('qt-canvas');
+    container.innerHTML = ''; 
+    canvas = document.createElement('canvas');
+    ctx = canvas.getContext('2d', { alpha: false }); 
+    container.appendChild(canvas);
+    
+    function resize() {
+        W = container.offsetWidth > 0 ? container.offsetWidth : 800;
+        H = container.offsetHeight > 0 ? container.offsetHeight : 440;
+        W = Math.min(W, 1200); 
+        canvas.width = W;
+        canvas.height = H;
+    }
+    window.addEventListener('resize', resize);
+    resize();
 }
 
-// Safely wrap p5 invocation so it doesn't crash the script if network failed
-if (typeof p5 !== 'undefined') {
-new p5(function(p) {
-  let W = 800, H = 440;
-  const AXIS_Y_FRAC = 0.65;
+function setMode(m) {
+    simMode = m;
+    document.getElementById('tabQuantum').className = 'tab-btn' + (m==='quantum'?' active':'');
+    document.getElementById('tabClassical').className = 'tab-btn' + (m==='classical'?' active':'');
+    document.getElementById('btnObserve').disabled = (m === 'classical');
+    doReset();
+}
+window.setMode = setMode;
 
-  let E = 0.5, V0 = 1.0, barrierW = 0.8, spread = 0.8, simSpeed = 1.0;
-  let T = 0, R = 1;
-  let showReal = true, showProb = true;
-
-  let phase = 0; 
-  let simTime = 0; 
-  let timelineProgress = 0;
-  
-  let isRunning = false;
-  let isPaused = false;
-  let triggerCollapse = false;
-  let collapsedParticle = null;
-  
-  let camX = 0, camY = 0, camScale = 1.0;
-  let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
-
-  let sparks = []; 
-  let classicalParticle = null;
-
-  // Primitive Arrays for colors
-  const COL_TRANS = [46, 255, 132];
-  const COL_REFL  = [255, 132, 46];
-  const COL_INC   = [46, 182, 255];
-  const COL_SUPER = [196, 122, 255]; 
-
-  function calcT(E_, V0_, a_nm) {
+function calcT(E_, V0_, a_nm) {
     let a = a_nm * 8; 
     if (Math.abs(E_ - V0_) < 0.005) return 1 / (1 + (2 * 0.038 * V0_ * a * a)); 
     if (E_ > V0_) {
-      let k1 = Math.sqrt(E_), k2 = Math.sqrt(Math.max(0.0001, E_ - V0_));
-      let sinSq = Math.pow(Math.sin(k2 * a), 2);
-      return 1 / (1 + (Math.pow(k1*k1 - k2*k2, 2) * sinSq) / (4 * k1*k1 * k2*k2));
+        let k1 = Math.sqrt(E_), k2 = Math.sqrt(Math.max(0.0001, E_ - V0_));
+        let sinSq = Math.pow(Math.sin(k2 * a), 2);
+        return 1 / (1 + (Math.pow(k1*k1 - k2*k2, 2) * sinSq) / (4 * k1*k1 * k2*k2));
     } else {
-      let kappa = Math.sqrt(Math.max(0.0001, V0_ - E_));
-      let sinhSq = Math.pow(Math.sinh(kappa * a), 2);
-      return 1 / (1 + (V0_ * V0_ * sinhSq) / (4 * E_ * (V0_ - E_)));
+        let kappa = Math.sqrt(Math.max(0.0001, V0_ - E_));
+        let sinhSq = Math.pow(Math.sinh(kappa * a), 2);
+        return 1 / (1 + (V0_ * V0_ * sinhSq) / (4 * E_ * (V0_ - E_)));
     }
-  }
+}
 
-  function doReset() {
-    isRunning = false; isPaused = false; triggerCollapse = false; collapsedParticle = null;
+function doReset() {
+    isRunning = false; isPaused = false; triggerCollapse = false; 
+    collapsedParticle = null; collapseAge = 0;
     timelineProgress = 0; simTime = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
-    sparks = []; classicalParticle = null;
+    classicalParticle = null;
     
     let btnF = document.getElementById('btnFire');
-    if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
+    btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; 
     
     let btnP = document.getElementById('btnPause');
-    if (btnP) { 
-        btnP.disabled = false;
-        btnP.style.opacity = 1;
-        btnP.textContent = "Pause"; 
-        btnP.classList.remove('paused'); 
-    }
+    btnP.disabled = false; btnP.style.opacity = 1; btnP.textContent = "Pause"; btnP.classList.remove('paused'); 
 
     let btnO = document.getElementById('btnObserve');
-    if (btnO) {
-        btnO.disabled = (simMode === 'classical');
-        btnO.textContent = "Observe";
-    }
-  }
-  window.doReset = doReset;
+    btnO.disabled = (simMode === 'classical'); btnO.textContent = "Observe";
+}
 
-  p.setup = function() {
-    try {
-        let container = document.getElementById('qt-canvas');
-        if (container) { 
-            // Capped at 1200px to ensure we never overwhelm a 4K screen
-            W = container.offsetWidth > 0 ? Math.min(container.offsetWidth, 1200) : 800; 
-            H = container.offsetHeight > 0 ? container.offsetHeight : 440; 
-        }
-        let cnv = p.createCanvas(W, H);
-        cnv.parent('qt-canvas');
-        
-        updateParams();
-        
-        document.getElementById('btnFire').onclick = () => { 
-          if (!isRunning) { 
-            isRunning = true;
-            let startX = -W * 0.2; 
-            if (simMode === 'classical') classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
-            
-            document.getElementById('btnFire').disabled = true;
-            document.getElementById('btnFire').style.opacity = 0.5;
-            document.getElementById('btnFire').textContent = "In Motion...";
-            phase = 1;
-          } 
-        };
-        
-        document.getElementById('btnPause').onclick = () => {
-            if (!isRunning) return;
-            isPaused = !isPaused;
-            let btnP = document.getElementById('btnPause');
-            btnP.textContent = isPaused ? "Resume" : "Pause";
-            if (isPaused) btnP.classList.add('paused');
-            else btnP.classList.remove('paused');
-        };
-
-        document.getElementById('btnObserve').onclick = () => {
-            if (simMode !== 'quantum' || !isRunning || phase === 0 || phase === 5) return;
-            if (collapsedParticle === null) triggerCollapse = true; 
-        };
-
-        document.getElementById('btnReset').onclick = doReset;
-        
-        document.getElementById('cbReal').onchange = (e) => showReal = e.target.checked;
-        document.getElementById('cbProb').onchange = (e) => showProb = e.target.checked;
-
-        ['energy','height','width','spread','speed'].forEach(id => {
-          let el = document.getElementById(id+'Slider');
-          if(el) el.oninput = function() { updateParams(); if(!isRunning && id !== 'speed') doReset(); };
-        });
-    } catch (e) {
-        let container = document.getElementById('qt-canvas');
-        if (container) container.innerHTML = `<div style='color:red; padding:20px;'>Setup Error: ${e.message}</div>`;
-    }
-  };
-
-  function updateParams() {
+function updateParams() {
     E = parseFloat(document.getElementById('energySlider').value) || 0.5;
     V0 = parseFloat(document.getElementById('heightSlider').value) || 1.0;
     barrierW = parseFloat(document.getElementById('widthSlider').value) || 0.8;
@@ -366,11 +299,66 @@ new p5(function(p) {
     
     document.getElementById('statT').textContent = (T * 100).toFixed(1) + '%';
     document.getElementById('statR').textContent = (R * 100).toFixed(1) + '%';
-  }
+}
 
-  p.draw = function() {
+window.onload = function() {
+    initCanvas();
+    updateParams();
+    
+    document.getElementById('btnFire').onclick = () => { 
+        if (!isRunning) { 
+            isRunning = true;
+            let startX = -W * 0.2; 
+            if (simMode === 'classical') classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
+            
+            let btnF = document.getElementById('btnFire');
+            btnF.disabled = true; btnF.style.opacity = 0.5; btnF.textContent = "In Motion...";
+            phase = 1;
+        } 
+    };
+    
+    document.getElementById('btnPause').onclick = () => {
+        if (!isRunning) return;
+        isPaused = !isPaused;
+        let btnP = document.getElementById('btnPause');
+        btnP.textContent = isPaused ? "Resume" : "Pause";
+        if (isPaused) btnP.classList.add('paused');
+        else btnP.classList.remove('paused');
+    };
+
+    document.getElementById('btnObserve').onclick = () => {
+        if (simMode !== 'quantum' || !isRunning || phase === 0 || phase === 5) return;
+        if (collapsedParticle === null) triggerCollapse = true; 
+    };
+
+    document.getElementById('btnReset').onclick = doReset;
+    document.getElementById('cbReal').onchange = (e) => showReal = e.target.checked;
+    document.getElementById('cbProb').onchange = (e) => showProb = e.target.checked;
+
+    ['energy','height','width','spread','speed'].forEach(id => {
+        let el = document.getElementById(id+'Slider');
+        if(el) el.oninput = function() { updateParams(); if(!isRunning && id !== 'speed') doReset(); };
+    });
+
+    requestAnimationFrame(drawLoop);
+};
+
+// Render Helpers
+function drawCircle(x, y, r, rCol, gCol, bCol, aCol) {
+    ctx.fillStyle = `rgba(${rCol}, ${gCol}, ${bCol}, ${aCol})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+
+function strokeLine(x1, y1, x2, y2, rCol, gCol, bCol, aCol, weight) {
+    ctx.strokeStyle = `rgba(${rCol}, ${gCol}, ${bCol}, ${aCol})`;
+    ctx.lineWidth = weight;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+
+function drawLoop() {
     try {
-        p.background(10, 15, 22); 
+        ctx.fillStyle = '#0a0f16';
+        ctx.fillRect(0, 0, W, H);
         
         let axisY = H * AXIS_Y_FRAC;
         let bwPx = 20 + ((barrierW - 0.1) / 2.9) * 130; 
@@ -379,18 +367,18 @@ new p5(function(p) {
         let bMid = (bx1 + bx2) / 2;
         let sigmaPx = spread * 40;
 
-        // --- TIMELINE UPDATE ---
-        if (isRunning && !isPaused) {
+        // TIMELINE
+        if (isRunning && !isPaused && collapsedParticle === null) {
             let speed = (0.001 + Math.sqrt(E) * 0.0015) * simSpeed;
             timelineProgress += speed;
             simTime += 1.0 * simSpeed; 
             if (timelineProgress >= 1.0) doReset();
-        } else if (isRunning && isPaused && collapsedParticle === null) {
-            simTime += 0.2; 
+        } else if (isRunning && collapsedParticle === null) {
+            simTime += 0.2; // Slight idle wave movement when paused
         }
 
-        // --- CAMERA DIRECTOR ---
-        if (isRunning) {
+        // CAMERA
+        if (isRunning && collapsedParticle === null) {
             if (timelineProgress < 0.3) {
                 phase = 1; targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
             } else if (timelineProgress >= 0.3 && timelineProgress < 0.7) {
@@ -400,316 +388,321 @@ new p5(function(p) {
             } else {
                 phase = 4; targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
             }
+        } else if (collapsedParticle !== null) {
+            // When collapsed, smoothly track the particle and zoom out slightly to watch it spread
+            targetCamScale = 1.5;
+            targetCamX = W * 0.5 - collapsedParticle * targetCamScale;
+            targetCamY = H * 0.5 - axisY * targetCamScale + 50;
         }
 
         camScale += (targetCamScale - camScale) * 0.08;
         if (isNaN(camScale)) camScale = 1.0;
         camScale = Math.max(0.1, Math.min(camScale, 4.0)); 
-        
         camX += (targetCamX - camX) * 0.08;
         if (isNaN(camX)) camX = 0;
-        
         camY += (targetCamY - camY) * 0.08;
         if (isNaN(camY)) camY = 0;
 
-        // --- RENDER MATRIX ---
-        p.push();
-        p.translate(camX, camY);
-        p.scale(camScale);
+        // RENDER TRANSFORM
+        ctx.save();
+        ctx.translate(camX, camY);
+        ctx.scale(camScale, camScale);
 
         drawEnvironment(axisY, bx1, bx2);
 
         if (simMode === 'quantum' && isRunning) {
-            drawUnifiedWaveFunction(axisY, bx1, bx2, sigmaPx);
+            if (collapsedParticle !== null) {
+                drawDispersionWave(axisY);
+            } else {
+                drawUnifiedWaveFunction(axisY, bx1, bx2, sigmaPx);
+            }
         } else if (simMode === 'classical' && isRunning) {
             drawClassicalParticle(axisY, bx1, bx2);
         }
 
-        p.pop();
-
+        ctx.restore();
         drawUI(phase);
 
     } catch (err) {
-        p.resetMatrix(); p.background(100, 0, 0); p.fill(255); p.noStroke(); p.textAlign(p.LEFT);
-        p.text("Crash Prevented. Render Error:", 20, 30); p.text(err.message, 20, 60); p.noLoop(); 
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = '#640000'; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#ffffff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText("Crash Prevented. Render Error:", 20, 40);
+        ctx.fillText(err.message, 20, 70);
     }
-  };
+    requestAnimationFrame(drawLoop);
+}
 
-  // --- OPTIMIZED UNIFIED WAVE ENGINE ---
-  function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
-      let totalDist = W * 1.4;
-      let startX = -W * 0.2;
-      let cx_in = startX + (totalDist * timelineProgress);
-      
-      let sigSq = Math.max(0.001, sigma * sigma);
-      let k_inc = Math.sqrt(E) * 0.12; 
-      let wt = simTime * 0.15; 
-      
-      let amp_R = Math.sqrt(Math.max(0, R));
-      let amp_T = Math.sqrt(Math.max(0, T));
-      
-      let decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.10 : 0;
-      let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
-      let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
+// --------------------------------------------------------
+// THE DISPERSING WAVE ENGINE (Post-Collapse)
+// --------------------------------------------------------
+function drawDispersionWave(axisY) {
+    if (!isPaused) {
+        collapseAge += simSpeed * 0.7; // Advance time to cause spreading
+        simTime += 1.0 * simSpeed;     // Advance phase
+    }
 
-      // Dynamic Culling: Only draw what the camera actually sees!
-      let viewMin = (-camX / camScale) - sigma * 4;
-      let viewMax = ((W - camX) / camScale) + sigma * 4;
-      let minDraw = Math.max(-W*2, viewMin);
-      let maxDraw = Math.min(W*3, viewMax);
+    // A Dirac delta approximation relaxing into a broad Gaussian wave packet
+    let baseSigma = 1.2; // Start incredibly narrow
+    let spreadRate = 0.5;
+    let currentSigma = baseSigma + collapseAge * spreadRate;
 
-      let densityArray = [];
-      let totalDensity = 0;
-      let alphaMult = (collapsedParticle !== null) ? 0.15 : 1.0;
+    // Amplitude drops over time to conserve total probability area 
+    let baseAmp = 2.0; 
+    let currentAmp = baseAmp * Math.sqrt(10.0 / currentSigma);
 
-      // 1. Draw Probability Density Fill
-      if (showProb) {
-          p.noStroke();
-          p.beginShape();
-          p.vertex(minDraw, axisY);
+    let k = Math.sqrt(E) * 0.12; 
+    let wt = simTime * 0.15; 
 
-          for (let x = minDraw; x <= maxDraw; x += 2.0) {
-              let val = 0;
-              let cr = COL_INC[0], cg = COL_INC[1], cb = COL_INC[2];
+    let minDraw = collapsedParticle - currentSigma * 4;
+    let maxDraw = collapsedParticle + currentSigma * 4;
 
-              if (x <= bx1) {
-                  let cx_ref = bx1 + (bx1 - cx_in); 
-                  let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
-                  let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
-                  val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
-                  
-                  if (env_r > 0.01) {
-                      let denom = env_i + env_r;
-                      let amt = denom > 0.0001 ? env_r / denom : 0;
-                      cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
-                      cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
-                      cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
-                  }
-              } 
-              else if (x > bx1 && x <= bx2) {
-                  let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
-                  let amp_L = env_base * (1.0 + amp_R);
-                  let amp_R_bound = env_base * amp_T;
-                  
-                  if (E < V0) {
-                      let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
-                      let req_kappa = -Math.log(ratio) / (bx2 - bx1);
-                      val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
-                      cr = COL_SUPER[0]; cg = COL_SUPER[1]; cb = COL_SUPER[2];
-                  } else {
-                      let pct = (x - bx1) / (bx2 - bx1);
-                      let amp_x = amp_L + pct * (amp_R_bound - amp_L);
-                      val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
-                      cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
-                  }
-              } 
-              else {
-                  let cx_tr = bx2 + (cx_in - bx1);
-                  let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
-                  let phaseCalc = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
-                  val = env_t * Math.cos(phaseCalc);
-                  cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
-              }
+    let cr = 100, cg = 255, cb = 255; // Cyan
 
-              let probDensity = val * val;
-              if (triggerCollapse) {
-                  densityArray.push({x: x, p: probDensity});
-                  totalDensity += probDensity;
-              }
+    // Probability Density
+    if (showProb) {
+        ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, 0.25)`;
+        for (let x = minDraw; x <= maxDraw; x += 1.5) {
+            let env = Math.exp(-Math.pow(x - collapsedParticle, 2) / (2 * currentSigma * currentSigma));
+            let val = currentAmp * env * Math.cos(k * (x - collapsedParticle) - wt);
+            let prob = val * val;
+            
+            // Limit render height so the initial infinite spike doesn't shoot off the canvas
+            let drawH = Math.min(prob * 45, axisY - 20);
+            if (drawH > 0.5) ctx.fillRect(x, axisY - drawH, 2.0, drawH);
+        }
+    }
 
-              p.fill(cr, cg, cb, 50 * alphaMult);
-              p.vertex(x, axisY - (probDensity * 65)); 
-          }
-          p.vertex(maxDraw, axisY);
-          p.endShape();
-      }
+    // Real Wave Line
+    if (showReal) {
+        let prevX = null, prevY = null;
+        for (let x = minDraw; x <= maxDraw; x += 1.0) {
+            let env = Math.exp(-Math.pow(x - collapsedParticle, 2) / (2 * currentSigma * currentSigma));
+            let val = currentAmp * env * Math.cos(k * (x - collapsedParticle) - wt);
+            
+            // Clamp rendering for the initial extreme spike
+            let drawY = Math.max(20, Math.min(axisY + 60, axisY - (val * 45)));
+            if (prevX !== null) {
+                strokeLine(prevX, prevY, x, drawY, cr, cg, cb, 1.0, 2.5 / camScale);
+            }
+            prevX = x; prevY = drawY;
+        }
+    }
 
-      // EXECUTE WAVE FUNCTION COLLAPSE
-      if (triggerCollapse) {
-          triggerCollapse = false;
-          if (totalDensity > 0) {
-              let roll = p.random(0, totalDensity);
-              let running = 0;
-              for (let pt of densityArray) {
-                  running += pt.p;
-                  if (running >= roll) {
-                      collapsedParticle = pt.x;
-                      break;
-                  }
-              }
-              isPaused = true;
-              
-              let btnP = document.getElementById('btnPause');
-              if (btnP) { 
-                  btnP.textContent = "Halted"; 
-                  btnP.disabled = true;
-                  btnP.style.opacity = 0.5;
-              }
-              
-              let btnO = document.getElementById('btnObserve');
-              if (btnO) {
-                  btnO.textContent = "Collapsed";
-                  btnO.disabled = true;
-              }
-          }
-      }
+    // Fading Flash Speck
+    if (collapseAge < 30) {
+        let alpha = 1.0 - (collapseAge / 30);
+        drawCircle(collapsedParticle, axisY, 8/camScale, 255, 255, 200, 0.8 * alpha);
+        drawCircle(collapsedParticle, axisY, 3/camScale, 255, 255, 255, 1.0 * alpha);
+    }
 
-      // 2. Draw Real Wave Line
-      if (showReal) {
-          p.noFill();
-          p.strokeWeight(2.5 / camScale);
-          p.beginShape();
-          for (let x = minDraw; x <= maxDraw; x += 1.5) { 
-              let val = 0;
-              let cr = COL_INC[0], cg = COL_INC[1], cb = COL_INC[2];
+    ctx.fillStyle = 'rgba(100, 255, 255, 0.9)';
+    ctx.font = `${11/camScale}px sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText("Dispersing Wave Packet", collapsedParticle, axisY - 35 / camScale);
+}
 
-              if (x <= bx1) {
-                  let cx_ref = bx1 + (bx1 - cx_in); 
-                  let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
-                  let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
-                  val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
-                  
-                  if (env_r > 0.01) {
-                      let denom = env_i + env_r;
-                      let amt = denom > 0.0001 ? env_r / denom : 0;
-                      cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
-                      cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
-                      cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
-                  }
-              } 
-              else if (x > bx1 && x <= bx2) {
-                  let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
-                  let amp_L = env_base * (1.0 + amp_R);
-                  let amp_R_bound = env_base * amp_T;
-                  
-                  if (E < V0) {
-                      let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
-                      let req_kappa = -Math.log(ratio) / (bx2 - bx1);
-                      val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
-                      cr = COL_SUPER[0]; cg = COL_SUPER[1]; cb = COL_SUPER[2];
-                  } else {
-                      let pct = (x - bx1) / (bx2 - bx1);
-                      let amp_x = amp_L + pct * (amp_R_bound - amp_L);
-                      val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
-                      cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
-                  }
-              } 
-              else {
-                  let cx_tr = bx2 + (cx_in - bx1);
-                  let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
-                  let phaseCalc = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
-                  val = env_t * Math.cos(phaseCalc);
-                  cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
-              }
+// --------------------------------------------------------
+// THE UNIFIED TUNNELING WAVE ENGINE
+// --------------------------------------------------------
+function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
+    let totalDist = W * 1.4;
+    let startX = -W * 0.2;
+    let cx_in = startX + (totalDist * timelineProgress);
+    
+    let sigSq = Math.max(0.001, sigma * sigma);
+    let k_inc = Math.sqrt(E) * 0.12; 
+    let wt = simTime * 0.15; 
+    
+    let amp_R = Math.sqrt(Math.max(0, R));
+    let amp_T = Math.sqrt(Math.max(0, T));
+    
+    let decay = E < V0 ? Math.sqrt(Math.max(0.0001, V0 - E)) * 0.10 : 0;
+    let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
+    let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
 
-              p.stroke(cr, cg, cb, 255 * alphaMult);
-              p.vertex(x, axisY - (val * 45));
-          }
-          p.endShape();
-      }
+    let viewMin = (-camX / camScale) - sigma * 4;
+    let viewMax = ((W - camX) / camScale) + sigma * 4;
+    let minDraw = Math.max(-W*2, viewMin);
+    let maxDraw = Math.min(W*3, viewMax);
 
-      if (timelineProgress > 0.5 && T > 0.01 && alphaMult === 1.0) {
-          p.fill(46, 255, 132, 220); p.noStroke(); p.textAlign(p.LEFT); p.textSize(12 / camScale);
-          p.text("Transmitted Wave Function", bx2 + 20, axisY - 60 / camScale);
-      }
+    let densityArray = [];
+    let totalDensity = 0;
 
-      // 3. Draw Collapsed Particle Speck
-      if (collapsedParticle !== null) {
-          p.noStroke();
-          p.fill(255, 255, 200, 200); p.circle(collapsedParticle, axisY, 8 / camScale); 
-          p.fill(255, 255, 255, 255); p.circle(collapsedParticle, axisY, 3 / camScale); 
-          
-          p.stroke(255, 255, 255, 100); p.strokeWeight(1/camScale); p.noFill();
-          p.circle(collapsedParticle, axisY, 16 / camScale); 
-          
-          p.fill(255); p.noStroke(); p.textSize(11 / camScale); p.textAlign(p.CENTER);
-          p.text("Collapsed to Speck", collapsedParticle, axisY - 20 / camScale);
-      }
-  }
+    let prevX = null, prevY = null;
 
-  function drawClassicalParticle(axisY, bx1, bx2) {
-      let totalDist = W * 1.4;
-      let startX = -W * 0.2;
-      let raw_x = startX + (totalDist * timelineProgress);
-      let r = 12;
-      let squish = 1.0;
-      let final_x = raw_x;
-      let canPass = E >= V0;
+    // Build the math array
+    for (let x = minDraw; x <= maxDraw; x += 1.0) {
+        let val = 0;
+        let cr = COL_INC[0], cg = COL_INC[1], cb = COL_INC[2];
 
-      if (!canPass) {
-          if (raw_x > bx1 - r) {
-              let overlap = raw_x - (bx1 - r);
-              if (overlap < 15) { 
-                  final_x = bx1 - r; 
-                  squish = 1.0 - (overlap / 30); 
-              } else {
-                  final_x = (bx1 - r) - (overlap - 15); 
-              }
-          }
-      } else {
-          let speedRatio = Math.sqrt(Math.max(0.001, E - V0)) / Math.sqrt(E);
-          let insideDist = bx2 - bx1 + 2*r;
-          let rawInsideDist = insideDist / speedRatio;
-          
-          if (raw_x > bx1 - r && raw_x <= bx1 - r + rawInsideDist) {
-              final_x = bx1 - r + (raw_x - (bx1 - r)) * speedRatio;
-          } else if (raw_x > bx1 - r + rawInsideDist) {
-              final_x = bx2 + r + (raw_x - (bx1 - r + rawInsideDist));
-          }
-      }
+        if (x <= bx1) {
+            let cx_ref = bx1 + (bx1 - cx_in); 
+            let env_i = Math.exp(-Math.pow(x - cx_in, 2) / (2 * sigSq));
+            let env_r = amp_R * Math.exp(-Math.pow(x - cx_ref, 2) / (2 * sigSq));
+            val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
+            
+            if (env_r > 0.01) {
+                let denom = env_i + env_r;
+                let amt = denom > 0.0001 ? env_r / denom : 0;
+                cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
+                cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
+                cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
+            }
+        } 
+        else if (x > bx1 && x <= bx2) {
+            let env_base = Math.exp(-Math.pow(bx1 - cx_in, 2) / (2 * sigSq));
+            let amp_L = env_base * (1.0 + amp_R);
+            let amp_R_bound = env_base * amp_T;
+            
+            if (E < V0) {
+                let ratio = Math.max(0.0001, amp_T / (1.0 + amp_R));
+                let req_kappa = -Math.log(ratio) / (bx2 - bx1);
+                val = amp_L * Math.exp(-req_kappa * (x - bx1)) * Math.cos(-wt);
+                cr = COL_SUPER[0]; cg = COL_SUPER[1]; cb = COL_SUPER[2];
+            } else {
+                let pct = (x - bx1) / (bx2 - bx1);
+                let amp_x = amp_L + pct * (amp_R_bound - amp_L);
+                val = amp_x * Math.cos(k_bar * (x - bx1) - wt);
+                cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
+            }
+        } 
+        else {
+            let cx_tr = bx2 + (cx_in - bx1);
+            let env_t = amp_T * Math.exp(-Math.pow(x - cx_tr, 2) / (2 * sigSq));
+            let phaseCalc = E < V0 ? k_inc * (x - bx2) - wt : k_inc * (x - bx2) + phase_at_bx2;
+            val = env_t * Math.cos(phaseCalc);
+            cr = COL_TRANS[0]; cg = COL_TRANS[1]; cb = COL_TRANS[2];
+        }
 
-      p.push(); p.translate(final_x, axisY - r);
-      if (canPass && final_x > bx1 && final_x < bx2) {
-          p.noStroke(); p.fill(46, 255, 132, 20); p.circle(-r, 0, r*5);
-      }
-      if (squish !== 1.0) { p.translate(r, 0); p.scale(squish, 2 - squish); p.translate(-r, 0); }
+        cr = Math.round(cr); cg = Math.round(cg); cb = Math.round(cb);
+        let probDensity = val * val;
 
-      let c = E >= V0 ? COL_TRANS : COL_REFL;
-      p.noStroke(); p.fill(c[0], c[1], c[2], 60); p.circle(0, 0, r * 2.8);
-      p.fill(c[0], c[1], c[2], 255); p.circle(0, 0, r * 2);
-      p.fill(255, 255, 255, 180); p.circle(-r*0.3, -r*0.3, r*0.5);
-      p.pop();
-  }
+        if (triggerCollapse) {
+            densityArray.push({x: x, p: probDensity});
+            totalDensity += probDensity;
+        }
 
-  function drawEnvironment(axisY, bx1, bx2) {
+        // Draw fills and lines based on the calculated point
+        if (showProb && x % 1.5 === 0) {
+            ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, 0.2)`;
+            ctx.fillRect(x, axisY - (probDensity * 65), 2.0, probDensity * 65);
+        }
+        if (showReal) {
+            let y = axisY - (val * 45);
+            if (prevX !== null) strokeLine(prevX, prevY, x, y, cr, cg, cb, 1.0, 2.5 / camScale);
+            prevX = x; prevY = y;
+        }
+    }
+
+    // FIRE COLLAPSE LOGIC
+    if (triggerCollapse) {
+        triggerCollapse = false;
+        if (totalDensity > 0) {
+            let roll = Math.random() * totalDensity;
+            let running = 0;
+            for (let pt of densityArray) {
+                running += pt.p;
+                if (running >= roll) { collapsedParticle = pt.x; break; }
+            }
+            
+            collapseAge = 0; // Initialize dispersion
+            let btnO = document.getElementById('btnObserve');
+            if (btnO) { btnO.textContent = "Collapsed"; btnO.disabled = true; }
+            
+            // Abort drawing the rest of the tunneling UI this frame
+            return;
+        }
+    }
+
+    if (timelineProgress > 0.5 && T > 0.01) {
+        ctx.fillStyle = `rgba(${COL_TRANS[0]}, ${COL_TRANS[1]}, ${COL_TRANS[2]}, 0.86)`;
+        ctx.font = `${12/camScale}px sans-serif`; ctx.textAlign = 'left';
+        ctx.fillText("Transmitted Wave Function", bx2 + 20, axisY - 60 / camScale);
+    }
+}
+
+function drawClassicalParticle(axisY, bx1, bx2) {
+    let totalDist = W * 1.4;
+    let startX = -W * 0.2;
+    let raw_x = startX + (totalDist * timelineProgress);
+    let r = 12;
+    let squish = 1.0;
+    let final_x = raw_x;
+    let canPass = E >= V0;
+
+    if (!canPass) {
+        if (raw_x > bx1 - r) {
+            let overlap = raw_x - (bx1 - r);
+            if (overlap < 15) { final_x = bx1 - r; squish = 1.0 - (overlap / 30); } 
+            else final_x = (bx1 - r) - (overlap - 15); 
+        }
+    } else {
+        let speedRatio = Math.sqrt(Math.max(0.001, E - V0)) / Math.sqrt(E);
+        let insideDist = bx2 - bx1 + 2*r;
+        let rawInsideDist = insideDist / speedRatio;
+        
+        if (raw_x > bx1 - r && raw_x <= bx1 - r + rawInsideDist) {
+            final_x = bx1 - r + (raw_x - (bx1 - r)) * speedRatio;
+        } else if (raw_x > bx1 - r + rawInsideDist) {
+            final_x = bx2 + r + (raw_x - (bx1 - r + rawInsideDist));
+        }
+    }
+
+    ctx.save();
+    ctx.translate(final_x, axisY - r);
+    if (canPass && final_x > bx1 && final_x < bx2) {
+        drawCircle(-r, 0, r*5, 46, 255, 132, 0.08);
+    }
+    if (squish !== 1.0) { ctx.translate(r, 0); ctx.scale(squish, 2 - squish); ctx.translate(-r, 0); }
+
+    let c = E >= V0 ? COL_TRANS : COL_REFL;
+    drawCircle(0, 0, r * 2.8, c[0], c[1], c[2], 0.24);
+    drawCircle(0, 0, r * 2, c[0], c[1], c[2], 1.0);
+    drawCircle(-r*0.3, -r*0.3, r*0.5, 255, 255, 255, 0.7);
+    ctx.restore();
+}
+
+function drawEnvironment(axisY, bx1, bx2) {
     let potH = 20 + ((V0 - 0.3) / 1.7) * 90; 
     
-    p.stroke(25, 35, 50); p.strokeWeight(1 / camScale);
-    for (let x = -W; x < W*2; x += 40) p.line(x, -H, x, H*2);
-    for (let y = -H; y < H*2; y += 40) p.line(-W, y, W*2, y);
+    ctx.strokeStyle = 'rgba(25, 35, 50, 1.0)';
+    ctx.lineWidth = 1 / camScale;
+    ctx.beginPath();
+    for (let x = -W; x < W*2; x += 40) { ctx.moveTo(x, -H); ctx.lineTo(x, H*2); }
+    for (let y = -H; y < H*2; y += 40) { ctx.moveTo(-W, y); ctx.lineTo(W*2, y); }
+    ctx.stroke();
 
-    p.noStroke();
-    p.fill(46, 182, 255, 25); p.rect(bx1, axisY - potH, bx2 - bx1, potH);
-    p.fill(46, 182, 255, 40); p.rect(bx1, axisY - potH * 0.3, bx2 - bx1, potH * 0.3);
+    ctx.fillStyle = 'rgba(46, 182, 255, 0.1)'; ctx.fillRect(bx1, axisY - potH, bx2 - bx1, potH);
+    ctx.fillStyle = 'rgba(46, 182, 255, 0.15)'; ctx.fillRect(bx1, axisY - potH * 0.3, bx2 - bx1, potH * 0.3);
 
-    p.stroke(46, 182, 255, 150); p.strokeWeight(2 / camScale);
-    p.line(bx1, axisY, bx1, axisY - potH); p.line(bx2, axisY, bx2, axisY - potH); p.line(bx1, axisY - potH, bx2, axisY - potH);
+    ctx.strokeStyle = 'rgba(46, 182, 255, 0.6)'; ctx.lineWidth = 2 / camScale;
+    ctx.beginPath();
+    ctx.moveTo(bx1, axisY); ctx.lineTo(bx1, axisY - potH);
+    ctx.moveTo(bx2, axisY); ctx.lineTo(bx2, axisY - potH);
+    ctx.moveTo(bx1, axisY - potH); ctx.lineTo(bx2, axisY - potH);
+    ctx.stroke();
 
-    p.stroke(50, 70, 90); p.strokeWeight(2 / camScale);
-    p.line(-W, axisY, W*2, axisY);
+    strokeLine(-W, axisY, W*2, axisY, 50, 70, 90, 1.0, 2 / camScale);
 
     let ey = axisY - (E / Math.max(V0, 0.01)) * potH;
     let ec = E >= V0 ? COL_TRANS : COL_REFL;
-    p.stroke(ec[0], ec[1], ec[2], 180); p.strokeWeight(1.5 / camScale);
-    p.line(-W, ey, W*2, ey);
-  }
+    strokeLine(-W, ey, W*2, ey, ec[0], ec[1], ec[2], 0.7, 1.5 / camScale);
+}
 
-  function drawUI(currentPhase) {
-      if (isRunning) {
-          p.fill(255); p.noStroke(); p.textSize(12); p.textAlign(p.CENTER);
-          let textStr = currentPhase === 1 ? "Tracking Incident Packet..." : 
-                        currentPhase === 2 ? (simMode === 'quantum' ? "Superposition & Exponential Decay..." : "Kinetic Boundary Interaction...") : 
-                        "Transmitted / Reflected Views";
-          if (collapsedParticle !== null) textStr = "Wave Function Collapsed (Measured Position)";
-          p.text(textStr, W/2, 30);
-      }
-      if (isPaused && collapsedParticle === null) {
-          p.fill(255, 132, 46); p.noStroke(); p.textSize(16); p.textAlign(p.RIGHT);
-          p.text("⏸ PAUSED", W - 20, 30);
-      }
-  }
-
-}, document.getElementById('qt-canvas'));
+function drawUI(currentPhase) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); 
+    if (isRunning) {
+        ctx.fillStyle = '#ffffff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+        let textStr = currentPhase === 1 ? "Tracking Incident Packet..." : 
+                      currentPhase === 2 ? (simMode === 'quantum' ? "Superposition & Exponential Decay..." : "Kinetic Boundary Interaction...") : 
+                      "Transmitted / Reflected Views";
+        if (collapsedParticle !== null) textStr = "Wave Function Collapsed (Dispersion Phase)";
+        ctx.fillText(textStr, W/2, 30);
+    }
+    if (isPaused) {
+        ctx.fillStyle = '#ff842e'; ctx.font = '16px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText("⏸ PAUSED", W - 20, 30);
+    }
 }
 </script>
 </body>
