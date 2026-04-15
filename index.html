@@ -3,8 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Final Master</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<title>Cinematic Quantum Tunneling - Network & Perf Stabilized</title>
+
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+<script>
+  if (typeof p5 === 'undefined') {
+      document.write('<script src="https://unpkg.com/p5@1.9.0/lib/p5.min.js"><\/script>');
+  }
+</script>
+
 <style>
   :root {
     --bg-main: #06090e;
@@ -76,7 +83,6 @@
   .btn-reset { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
   .btn-reset:hover { background: #1a283b; color: #fff; }
 
-  /* Legend & View Toggles */
   .legend-box { background: #06090e; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; }
   .legend-title { width: 100%; font-size: 10px; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; font-weight: 700; display:flex; justify-content: space-between;}
   .leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-light); width: calc(50% - 5px); }
@@ -93,7 +99,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.15 13:22 PDT</div>
+      <div class="version-tag">v2026.04.15 13:40 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -102,7 +108,8 @@
   </div>
   <div id="qt-canvas">
       <div id="loading-msg" style="color:#7a93b3; padding: 20px; text-align: center; font-family: monospace;">
-          Initializing Simulation Graphics...
+          Initializing Simulation Graphics...<br><br>
+          <span style="font-size: 11px; color: #ff842e;" id="load-warning"></span>
       </div>
   </div>
   <div id="qt-controls">
@@ -191,12 +198,17 @@
 </div>
 
 <script>
+// Final Network Failsafe
 window.onload = function() {
     let loader = document.getElementById('loading-msg');
-    if (typeof p5 === 'undefined') {
-        if(loader) loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>CRITICAL ERROR:</b> p5.js Library Failed to Load. Check your internet connection.</span>";
-    } else {
-        if(loader) loader.style.display = 'none';
+    let warn = document.getElementById('load-warning');
+    setTimeout(() => {
+        if (typeof p5 === 'undefined' && loader) {
+            loader.innerHTML = "<span style='color:#ff5555; font-size:14px;'><b>NETWORK ERROR:</b> Your browser blocked the p5.js library from downloading. Please check your firewall, AdBlocker, or Live Server settings.</span>";
+        }
+    }, 2000);
+    if (typeof p5 !== 'undefined' && loader) {
+        loader.style.display = 'none';
     }
 };
 
@@ -209,6 +221,8 @@ function setMode(m) {
   if (typeof window.doReset === 'function') window.doReset();
 }
 
+// Safely wrap p5 invocation so it doesn't crash the script if network failed
+if (typeof p5 !== 'undefined') {
 new p5(function(p) {
   let W = 800, H = 440;
   const AXIS_Y_FRAC = 0.65;
@@ -229,7 +243,10 @@ new p5(function(p) {
   let camX = 0, camY = 0, camScale = 1.0;
   let targetCamX = 0, targetCamY = 0, targetCamScale = 1.0;
 
-  // Primitive Arrays for colors (Memory Safe)
+  let sparks = []; 
+  let classicalParticle = null;
+
+  // Primitive Arrays for colors
   const COL_TRANS = [46, 255, 132];
   const COL_REFL  = [255, 132, 46];
   const COL_INC   = [46, 182, 255];
@@ -254,6 +271,7 @@ new p5(function(p) {
     timelineProgress = 0; simTime = 0;
     targetCamScale = 1.0; targetCamX = 0; targetCamY = 0;
     camScale = 1.0; camX = 0; camY = 0; 
+    sparks = []; classicalParticle = null;
     
     let btnF = document.getElementById('btnFire');
     if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
@@ -277,7 +295,11 @@ new p5(function(p) {
   p.setup = function() {
     try {
         let container = document.getElementById('qt-canvas');
-        if (container) { W = container.offsetWidth > 0 ? container.offsetWidth : 800; H = container.offsetHeight > 0 ? container.offsetHeight : 440; }
+        if (container) { 
+            // Capped at 1200px to ensure we never overwhelm a 4K screen
+            W = container.offsetWidth > 0 ? Math.min(container.offsetWidth, 1200) : 800; 
+            H = container.offsetHeight > 0 ? container.offsetHeight : 440; 
+        }
         let cnv = p.createCanvas(W, H);
         cnv.parent('qt-canvas');
         
@@ -286,6 +308,9 @@ new p5(function(p) {
         document.getElementById('btnFire').onclick = () => { 
           if (!isRunning) { 
             isRunning = true;
+            let startX = -W * 0.2; 
+            if (simMode === 'classical') classicalParticle = { x: startX, v: 3.0 * Math.sqrt(E), r: 12, squish: 1.0 };
+            
             document.getElementById('btnFire').disabled = true;
             document.getElementById('btnFire').style.opacity = 0.5;
             document.getElementById('btnFire').textContent = "In Motion...";
@@ -318,7 +343,7 @@ new p5(function(p) {
         });
     } catch (e) {
         let container = document.getElementById('qt-canvas');
-        if (container) container.innerHTML = `<div style='color:red; padding:20px;'>Setup Crash: ${e.message}</div>`;
+        if (container) container.innerHTML = `<div style='color:red; padding:20px;'>Setup Error: ${e.message}</div>`;
     }
   };
 
@@ -354,7 +379,7 @@ new p5(function(p) {
         let bMid = (bx1 + bx2) / 2;
         let sigmaPx = spread * 40;
 
-        // --- GLOBAL TIMELINE UPDATE ---
+        // --- TIMELINE UPDATE ---
         if (isRunning && !isPaused) {
             let speed = (0.001 + Math.sqrt(E) * 0.0015) * simSpeed;
             timelineProgress += speed;
@@ -377,11 +402,15 @@ new p5(function(p) {
             }
         }
 
-        // Safe Math Lerping
         camScale += (targetCamScale - camScale) * 0.08;
+        if (isNaN(camScale)) camScale = 1.0;
         camScale = Math.max(0.1, Math.min(camScale, 4.0)); 
+        
         camX += (targetCamX - camX) * 0.08;
+        if (isNaN(camX)) camX = 0;
+        
         camY += (targetCamY - camY) * 0.08;
+        if (isNaN(camY)) camY = 0;
 
         // --- RENDER MATRIX ---
         p.push();
@@ -406,7 +435,7 @@ new p5(function(p) {
     }
   };
 
-  // --- THE UNIFIED WAVE ENGINE (ZERO OBJECT ALLOCATION) ---
+  // --- OPTIMIZED UNIFIED WAVE ENGINE ---
   function drawUnifiedWaveFunction(axisY, bx1, bx2, sigma) {
       let totalDist = W * 1.4;
       let startX = -W * 0.2;
@@ -423,8 +452,11 @@ new p5(function(p) {
       let k_bar = E >= V0 ? Math.sqrt(Math.max(0.0001, E - V0)) * 0.12 : 0;
       let phase_at_bx2 = E >= V0 ? k_bar * (bx2 - bx1) - wt : -wt;
 
-      let minDraw = -W;
-      let maxDraw = W * 2.5;
+      // Dynamic Culling: Only draw what the camera actually sees!
+      let viewMin = (-camX / camScale) - sigma * 4;
+      let viewMax = ((W - camX) / camScale) + sigma * 4;
+      let minDraw = Math.max(-W*2, viewMin);
+      let maxDraw = Math.min(W*3, viewMax);
 
       let densityArray = [];
       let totalDensity = 0;
@@ -447,7 +479,8 @@ new p5(function(p) {
                   val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
                   
                   if (env_r > 0.01) {
-                      let amt = env_r / (env_i + env_r);
+                      let denom = env_i + env_r;
+                      let amt = denom > 0.0001 ? env_r / denom : 0;
                       cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
                       cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
                       cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
@@ -537,7 +570,8 @@ new p5(function(p) {
                   val = env_i * Math.cos(k_inc * (x - bx1) - wt) + env_r * Math.cos(-k_inc * (x - bx1) - wt);
                   
                   if (env_r > 0.01) {
-                      let amt = env_r / (env_i + env_r);
+                      let denom = env_i + env_r;
+                      let amt = denom > 0.0001 ? env_r / denom : 0;
                       cr = COL_INC[0] + (COL_SUPER[0] - COL_INC[0]) * amt;
                       cg = COL_INC[1] + (COL_SUPER[1] - COL_INC[1]) * amt;
                       cb = COL_INC[2] + (COL_SUPER[2] - COL_INC[2]) * amt;
@@ -574,7 +608,6 @@ new p5(function(p) {
           p.endShape();
       }
 
-      // Floating Label for Transmitted Wave
       if (timelineProgress > 0.5 && T > 0.01 && alphaMult === 1.0) {
           p.fill(46, 255, 132, 220); p.noStroke(); p.textAlign(p.LEFT); p.textSize(12 / camScale);
           p.text("Transmitted Wave Function", bx2 + 20, axisY - 60 / camScale);
@@ -603,7 +636,6 @@ new p5(function(p) {
       let final_x = raw_x;
       let canPass = E >= V0;
 
-      // FIXED: Perfect classical reflection math
       if (!canPass) {
           if (raw_x > bx1 - r) {
               let overlap = raw_x - (bx1 - r);
@@ -678,6 +710,7 @@ new p5(function(p) {
   }
 
 }, document.getElementById('qt-canvas'));
+}
 </script>
 </body>
 </html>
