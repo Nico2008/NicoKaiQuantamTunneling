@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cinematic Quantum Tunneling - Optimized Master</title>
+<title>Cinematic Quantum Tunneling - Final Master</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
   :root {
@@ -62,13 +62,15 @@
   .btn-fire { background: var(--accent-purple); color: #fff; box-shadow: 0 4px 15px rgba(196, 122, 255, 0.3); }
   .btn-fire:hover { filter: brightness(1.1); transform: translateY(-2px); }
   .btn-fire:active { transform: translateY(1px); box-shadow: none; }
+  .btn-fire:disabled { opacity: 0.3; cursor: not-allowed; filter: none; transform: none; box-shadow: none; }
   
   .btn-pause { background: #1a283b; color: #fff; border: 1px solid var(--border); }
-  .btn-pause:hover { background: #263852; }
+  .btn-pause:hover:not(:disabled) { background: #263852; }
   .btn-pause.paused { background: var(--accent-orange); color: #fff; box-shadow: 0 0 12px rgba(255, 132, 46, 0.4); border-color: var(--accent-orange); }
+  .btn-pause:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .btn-observe { background: #0e2a3b; color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-  .btn-observe:hover { background: #16405c; color: #fff; }
+  .btn-observe:hover:not(:disabled) { background: #16405c; color: #fff; }
   .btn-observe:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .btn-reset { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
@@ -91,7 +93,7 @@
   <div id="qt-header">
     <div class="title"><div class="dot"></div>Cinematic Quantum Tunneling</div>
     <div style="display:flex; align-items:center; gap: 15px;">
-      <div class="version-tag">v2026.04.10 12:15 PDT</div>
+      <div class="version-tag">v2026.04.15 13:22 PDT</div>
       <div id="qt-tabs">
         <button class="tab-btn active" id="tabQuantum" onclick="setMode('quantum')">Quantum</button>
         <button class="tab-btn" id="tabClassical" onclick="setMode('classical')">Classical</button>
@@ -257,10 +259,18 @@ new p5(function(p) {
     if (btnF) { btnF.disabled = false; btnF.style.opacity = 1; btnF.textContent = "Launch"; }
     
     let btnP = document.getElementById('btnPause');
-    if (btnP) { btnP.textContent = "Pause"; btnP.classList.remove('paused'); }
+    if (btnP) { 
+        btnP.disabled = false;
+        btnP.style.opacity = 1;
+        btnP.textContent = "Pause"; 
+        btnP.classList.remove('paused'); 
+    }
 
     let btnO = document.getElementById('btnObserve');
-    if (btnO) btnO.textContent = "Observe";
+    if (btnO) {
+        btnO.disabled = (simMode === 'classical');
+        btnO.textContent = "Observe";
+    }
   }
   window.doReset = doReset;
 
@@ -286,10 +296,6 @@ new p5(function(p) {
         document.getElementById('btnPause').onclick = () => {
             if (!isRunning) return;
             isPaused = !isPaused;
-            if (!isPaused && collapsedParticle !== null) {
-                collapsedParticle = null;
-                document.getElementById('btnObserve').textContent = "Observe";
-            }
             let btnP = document.getElementById('btnPause');
             btnP.textContent = isPaused ? "Resume" : "Pause";
             if (isPaused) btnP.classList.add('paused');
@@ -391,6 +397,7 @@ new p5(function(p) {
         }
 
         p.pop();
+
         drawUI(phase);
 
     } catch (err) {
@@ -498,9 +505,19 @@ new p5(function(p) {
                   }
               }
               isPaused = true;
+              
               let btnP = document.getElementById('btnPause');
-              if (btnP) { btnP.textContent = "Resume"; btnP.classList.add('paused'); }
-              document.getElementById('btnObserve').textContent = "Collapsed";
+              if (btnP) { 
+                  btnP.textContent = "Halted"; 
+                  btnP.disabled = true;
+                  btnP.style.opacity = 0.5;
+              }
+              
+              let btnO = document.getElementById('btnObserve');
+              if (btnO) {
+                  btnO.textContent = "Collapsed";
+                  btnO.disabled = true;
+              }
           }
       }
 
@@ -586,17 +603,27 @@ new p5(function(p) {
       let final_x = raw_x;
       let canPass = E >= V0;
 
-      if (raw_x > bx1 - r && raw_x < bx2 + r) {
-          if (!canPass) {
+      // FIXED: Perfect classical reflection math
+      if (!canPass) {
+          if (raw_x > bx1 - r) {
               let overlap = raw_x - (bx1 - r);
-              if (overlap < 15) { final_x = bx1 - r; squish = 1.0 - (overlap/30); } 
-              else final_x = (bx1 - r) - (overlap - 15); 
-          } else {
-              let speedRatio = Math.sqrt(E - V0) / Math.sqrt(E);
-              final_x = bx1 - r + (raw_x - (bx1 - r)) * speedRatio;
+              if (overlap < 15) { 
+                  final_x = bx1 - r; 
+                  squish = 1.0 - (overlap / 30); 
+              } else {
+                  final_x = (bx1 - r) - (overlap - 15); 
+              }
           }
-      } else if (!canPass && raw_x >= bx2 + r) {
-           final_x = startX; 
+      } else {
+          let speedRatio = Math.sqrt(Math.max(0.001, E - V0)) / Math.sqrt(E);
+          let insideDist = bx2 - bx1 + 2*r;
+          let rawInsideDist = insideDist / speedRatio;
+          
+          if (raw_x > bx1 - r && raw_x <= bx1 - r + rawInsideDist) {
+              final_x = bx1 - r + (raw_x - (bx1 - r)) * speedRatio;
+          } else if (raw_x > bx1 - r + rawInsideDist) {
+              final_x = bx2 + r + (raw_x - (bx1 - r + rawInsideDist));
+          }
       }
 
       p.push(); p.translate(final_x, axisY - r);
